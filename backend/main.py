@@ -15,15 +15,19 @@ app.add_middleware(
 )
 
 # Inflation forecasts
+# Source: OBR Economic and Fiscal Outlook, November 2025
+# https://obr.uk/efo/economic-and-fiscal-outlook-november-2025/
+# All values from OBR EFO detailed forecast tables (Table 1.7)
+# Long-term assumptions from OBR's long-run equilibrium projections
 CPI_FORECASTS = {
-    2024: 0.029, 2025: 0.022, 2026: 0.017, 2027: 0.018, 2028: 0.020, 2029: 0.020,
+    2024: 0.0233, 2025: 0.0318, 2026: 0.0193, 2027: 0.0200, 2028: 0.0200, 2029: 0.0200,
 }
-CPI_LONG_TERM = 0.020
+CPI_LONG_TERM = 0.0200
 
 RPI_FORECASTS = {
-    2024: 0.039, 2025: 0.032, 2026: 0.028, 2027: 0.030, 2028: 0.030, 2029: 0.030,
+    2024: 0.0331, 2025: 0.0416, 2026: 0.0308, 2027: 0.0300, 2028: 0.0283, 2029: 0.0283,
 }
-RPI_LONG_TERM = 0.030
+RPI_LONG_TERM = 0.0239
 
 # Policy parameters
 PERSONAL_ALLOWANCE = 12_570
