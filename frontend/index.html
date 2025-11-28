@@ -277,6 +277,45 @@
         .calc-result.negative { color: #dc2626; }
 
         .loading { text-align: center; padding: 40px; color: #888; }
+
+        .methodology {
+            margin-top: 32px;
+            padding: 24px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .methodology h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 12px;
+        }
+        .methodology h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 20px 0 10px 0;
+        }
+        .methodology p {
+            font-size: 0.95rem;
+            color: #475569;
+            line-height: 1.7;
+            margin-bottom: 12px;
+        }
+        .methodology ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .methodology li {
+            font-size: 0.9rem;
+            color: #475569;
+            line-height: 1.7;
+            margin-bottom: 8px;
+        }
+        .methodology li strong {
+            color: #1e293b;
+        }
     </style>
 </head>
 <body>
@@ -375,6 +414,30 @@
                 </div>
             </div>
         </div>
+
+        <div class="methodology">
+            <h2>About this model</h2>
+            <p>This tool estimates the lifetime financial impact of recent UK budget policy changes on a graduate entering the workforce in 2024. It models how various reforms affect take-home pay from age 22 until retirement, accounting for earnings growth, tax thresholds, and student loan repayments.</p>
+
+            <h3>Policy reforms modelled</h3>
+            <ul>
+                <li><strong>Rail fare freeze</strong> — One-year freeze on rail fares in 2026, saving commuters the RPI increase they would otherwise have paid.</li>
+                <li><strong>Fuel duty freeze</strong> — Continuation of the fuel duty freeze, keeping duty at 52.95p/litre rather than the planned 58p/litre.</li>
+                <li><strong>Income tax threshold freeze</strong> — Extension of the freeze on personal allowance (£12,570) and basic rate threshold (£50,270) until 2030, rather than uprating with CPI from 2028.</li>
+                <li><strong>Unearned income tax increase</strong> — 5% increase in tax on dividends, savings interest, and property income above allowances.</li>
+                <li><strong>Salary sacrifice cap</strong> — £2,000 annual cap on salary sacrifice for pensions, with employee (8%) and employer (15%) NICs charged on contributions above this.</li>
+                <li><strong>Student loan threshold freeze</strong> — Plan 2 repayment threshold frozen at £27,295 from 2027-2030, rather than rising with RPI. Debt written off after 30 years.</li>
+            </ul>
+
+            <h3>Assumptions</h3>
+            <ul>
+                <li>Graduate starts work at age 22 with earnings based on selected percentile of graduate starting salaries.</li>
+                <li>Earnings grow with age following typical career progression, plateauing at 2.2x starting salary from age 50.</li>
+                <li>CPI inflation follows OBR forecasts then 2% long-term; RPI at CPI + 1%.</li>
+                <li>All amounts shown in nominal terms (not inflation-adjusted).</li>
+                <li>Positive values (green) indicate the reform makes you better off; negative (red) means worse off.</li>
+            </ul>
+        </div>
     </div>
 
     <div class="tooltip" id="tooltip"></div>
@@ -389,9 +452,14 @@
         </div>
     </div>
 
+    <!-- Config: set API_URL before loading main script -->
     <script>
-        // API URL - set via window.API_URL or defaults to localhost
-        const API_URL = window.API_URL || 'http://localhost:8000';
+        // For production, replace this URL with your Cloud Run backend URL
+        // Or set window.API_URL in a separate config.js file
+        window.API_URL = window.API_URL || 'http://localhost:8000';
+    </script>
+    <script>
+        const API_URL = window.API_URL;
 
         const reforms = [
             { key: 'impact_rail_fare_freeze', label: 'Rail fare freeze', color: '#3b82f6' },

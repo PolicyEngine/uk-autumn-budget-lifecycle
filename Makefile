@@ -1,25 +1,19 @@
-.PHONY: run clean docker docker-down dev
+.PHONY: dev docker docker-down clean
 
-# Static chart
-run:
-	uv run python build_chart.py
-	open chart_output.html
+# Local dev (no docker)
+dev:
+	cd backend && uvicorn main:app --reload --port 8000 &
+	@sleep 2
+	open frontend/index.html
 
-# Docker
+# Docker (local)
 docker:
 	docker compose up --build -d
 	@echo "Frontend: http://localhost:3000"
 	@echo "API: http://localhost:8000"
-	open http://localhost:3000
 
 docker-down:
 	docker compose down
 
-# Local dev (no docker)
-dev:
-	cd backend && uv run uvicorn main:app --reload --port 8000 &
-	@sleep 2
-	open frontend/index.html
-
 clean:
-	rm -f lifetime_results.csv lifetime_impacts.png chart_output.html
+	rm -rf backend/__pycache__
