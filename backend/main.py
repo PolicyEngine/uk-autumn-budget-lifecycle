@@ -49,7 +49,12 @@ STUDENT_LOAN_THRESHOLD_PLAN2 = 27_295
 STUDENT_LOAN_RATE = 0.09
 STUDENT_LOAN_FORGIVENESS_YEARS = 30
 
-FUEL_DUTY_PER_LITRE = 0.5295
+# Fuel duty rates (per litre)
+# Current rate: 52.95p (frozen with 5p cut)
+# Reform for FY 2026-27: extend 5p cut to Aug 2026, then +1p Sep, +2p Dec, +2p Mar
+# Weighted average for FY 2026-27: (5*52.95 + 3*53.95 + 3*55.95 + 1*57.95) / 12 = 54.37p
+FUEL_DUTY_CURRENT = 0.5295
+FUEL_DUTY_FY_2026_27 = (5 * 0.5295 + 3 * 0.5395 + 3 * 0.5595 + 1 * 0.5795) / 12  # ~0.5437
 FUEL_DUTY_UNFROZEN = 0.58
 AVG_PETROL_PRICE_PER_LITRE = 1.40
 
@@ -71,16 +76,10 @@ PEAK_EARNINGS_MULTIPLIER = 2.20  # Plateau from age 50 onwards
 
 
 class ModelInputs(BaseModel):
-    income_p25: float = 21_000
-    income_p50: float = 26_000
-    income_p75: float = 31_000
-    income_p90: float = 40_000
-    income_percentile: str = "p90"
+    starting_salary: float = 30_000
+    graduation_year: int = 2024
     retirement_age: int = 67
     student_loan_debt: float = 50_000
-    marriage_age: int = 31
-    num_kids: int = 2
-    years_between_kids: int = 2
     salary_sacrifice_per_year: float = 5_000
     rail_spending_per_year: float = 2_000
     dividends_per_year: float = 2_000
@@ -106,14 +105,6 @@ def get_cumulative_inflation(base_year: int, target_year: int, use_rpi: bool = F
     return factor
 
 
-def get_starting_salary(inputs: ModelInputs) -> float:
-    mapping = {
-        "p25": inputs.income_p25,
-        "p50": inputs.income_p50,
-        "p75": inputs.income_p75,
-        "p90": inputs.income_p90,
-    }
-    return mapping.get(inputs.income_percentile, inputs.income_p50)
 
 
 def calculate_income_tax(gross_income: float) -> float:
@@ -171,8 +162,23 @@ def calculate_student_loan(
     return repayment, max(0, new_debt)
 
 
-def calculate_fuel_duty_impact(petrol_spending: float) -> float:
-    return petrol_spending * (FUEL_DUTY_UNFROZEN - FUEL_DUTY_PER_LITRE) / AVG_PETROL_PRICE_PER_LITRE
+def calculate_fuel_duty_impact(petrol_spending: float, fiscal_year: int) -> float:
+    """Calculate impact of fuel duty freeze/reform vs unfrozen baseline.
+
+    FY 2026-27: Phased increase (weighted average ~54.37p)
+    FY 2027-28 onwards: Full rate of 57.95p
+    """
+    if fiscal_year <= 2025:
+        # Current frozen rate
+        reform_rate = FUEL_DUTY_CURRENT
+    elif fiscal_year == 2026:
+        # FY 2026-27: weighted average of phased increases
+        reform_rate = FUEL_DUTY_FY_2026_27
+    else:
+        # FY 2027-28 onwards: 57.95p (52.95 + 5p of increases)
+        reform_rate = 0.5795
+
+    return petrol_spending * (FUEL_DUTY_UNFROZEN - reform_rate) / AVG_PETROL_PRICE_PER_LITRE
 
 
 def calculate_rail_impact(rail_spending: float, current_year: int) -> float:
@@ -216,24 +222,35 @@ def calculate_unearned_income_tax(dividends: float, savings_interest: float, pro
 
 
 def run_model(inputs: ModelInputs) -> list[dict]:
-    starting_salary = get_starting_salary(inputs)
+    # Starting salary is what they earned at age 22 in their graduation year
+    # We use this to anchor their earnings profile
+    starting_salary = inputs.starting_salary
     graduation_age = 22
+    graduation_year = inputs.graduation_year
+
+    # Simulation runs from 2024 onwards
     base_year = 2024
-    end_age = 100
+    end_year = 2100
     results = []
     student_loan_debt = inputs.student_loan_debt
 
-    for age in range(graduation_age, end_age + 1):
+    for current_year in range(base_year, end_year + 1):
+        # Calculate age based on graduation year
+        years_since_graduation = current_year - graduation_year
+        age = graduation_age + years_since_graduation
+
+        # Skip if not yet graduated or too old
+        if age < graduation_age or age > 100:
+            continue
+
         is_retired = age > inputs.retirement_age
-        year_from_start = age - graduation_age
-        current_year = base_year + year_from_start
 
         # Earnings are zero after retirement, plateau at peak before
         if is_retired:
             gross_income = 0
         else:
             base_multiplier = EARNINGS_GROWTH_BY_AGE.get(age, PEAK_EARNINGS_MULTIPLIER)
-            additional_growth = (1 + inputs.additional_income_growth_rate) ** year_from_start
+            additional_growth = (1 + inputs.additional_income_growth_rate) ** years_since_graduation
             gross_income = starting_salary * base_multiplier * additional_growth
 
         # Simplified: no children modelling
@@ -242,7 +259,7 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         income_tax = calculate_income_tax(gross_income)
         ni = calculate_ni(gross_income)
         student_loan_payment, student_loan_debt = calculate_student_loan(
-            gross_income, student_loan_debt, current_year, year_from_start
+            gross_income, student_loan_debt, current_year, years_since_graduation
         )
         unearned_tax = calculate_unearned_income_tax(
             inputs.dividends_per_year, inputs.savings_interest_per_year, inputs.property_income_per_year, gross_income
@@ -254,8 +271,10 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         # Rail fare freeze (2026 only)
         impact_rail_freeze = calculate_rail_impact(inputs.rail_spending_per_year, current_year)
 
-        # Fuel duty freeze
-        impact_fuel_freeze = calculate_fuel_duty_impact(inputs.petrol_spending_per_year)
+        # Fuel duty reform
+        # Note: current_year is calendar year, fiscal year starts April so FY = calendar year for most of year
+        fiscal_year = current_year
+        impact_fuel_freeze = calculate_fuel_duty_impact(inputs.petrol_spending_per_year, fiscal_year)
 
         # Threshold freeze extension
         if current_year < 2028:

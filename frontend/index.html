@@ -328,13 +328,19 @@
                 <h2>Household inputs</h2>
 
                 <div class="control-group">
-                    <label>Income percentile</label>
-                    <select id="income_percentile">
-                        <option value="p25">25th (£21k starting)</option>
-                        <option value="p50">50th (£26k starting)</option>
-                        <option value="p75">75th (£31k starting)</option>
-                        <option value="p90" selected>90th (£40k starting)</option>
-                    </select>
+                    <label>Starting salary</label>
+                    <div class="slider-container">
+                        <input type="range" id="starting_salary" value="30000" min="15000" max="80000" step="1000">
+                        <span class="slider-value" id="starting_salary_value">£30,000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Graduation year</label>
+                    <div class="slider-container">
+                        <input type="range" id="graduation_year" value="2024" min="2020" max="2030" step="1">
+                        <span class="slider-value" id="graduation_year_value">2024</span>
+                    </div>
                 </div>
 
                 <div class="control-group">
@@ -417,12 +423,12 @@
 
         <div class="methodology">
             <h2>About this model</h2>
-            <p>This tool estimates the lifetime financial impact of recent UK budget policy changes on a graduate entering the workforce in 2024. It models how various reforms affect take-home pay from age 22 until retirement, accounting for earnings growth, tax thresholds, and student loan repayments.</p>
+            <p>This tool estimates the lifetime financial impact of recent UK budget policy changes on a graduate entering the workforce. It models how various reforms affect take-home pay from age 22 until retirement, accounting for earnings growth, tax thresholds, and student loan repayments.</p>
 
             <h3>Policy reforms modelled</h3>
             <ul>
                 <li><strong>Rail fare freeze</strong> — One-year freeze on rail fares in 2026, saving commuters the RPI increase they would otherwise have paid.</li>
-                <li><strong>Fuel duty freeze</strong> — Continuation of the fuel duty freeze, keeping duty at 52.95p/litre rather than the planned 58p/litre.</li>
+                <li><strong>Fuel duty reform</strong> — The 5p cut extended to August 2026, then phased increases: +1p from September 2026, +2p from December 2026, +2p from March 2027. Compared to unfrozen baseline of 58p/litre.</li>
                 <li><strong>Income tax threshold freeze</strong> — Extension of the freeze on personal allowance (£12,570) and basic rate threshold (£50,270) until 2030, rather than uprating with CPI from 2028.</li>
                 <li><strong>Unearned income tax increase</strong> — 5% increase in tax on dividends, savings interest, and property income above allowances.</li>
                 <li><strong>Salary sacrifice cap</strong> — £2,000 annual cap on salary sacrifice for pensions, with employee (8%) and employer (15%) NICs charged on contributions above this.</li>
@@ -431,9 +437,9 @@
 
             <h3>Assumptions</h3>
             <ul>
-                <li>Graduate starts work at age 22 with earnings based on selected percentile of graduate starting salaries.</li>
+                <li>Graduate starts work at age 22 with the specified starting salary in their graduation year. The model simulates from 2024 onwards, so a 2020 graduate would be 26 years old in 2024.</li>
                 <li>Earnings grow with age following typical career progression, plateauing at 2.2x starting salary from age 50.</li>
-                <li>CPI inflation follows OBR forecasts then 2% long-term; RPI at CPI + 1%.</li>
+                <li>CPI inflation follows OBR forecasts then 2% long-term; RPI follows OBR forecasts then 2.39% long-term.</li>
                 <li>All amounts shown in nominal terms (not inflation-adjusted).</li>
                 <li>Positive values (green) indicate the reform makes you better off; negative (red) means worse off.</li>
             </ul>
@@ -456,7 +462,7 @@
     <script>
         // For production, replace this URL with your Cloud Run backend URL
         // Or set window.API_URL in a separate config.js file
-        window.API_URL = window.API_URL || 'https://uk-autumn-budget-lifecycle-578039519715.europe-west1.run.app';
+        window.API_URL = window.API_URL || 'http://localhost:8000';
     </script>
     <script>
         const API_URL = window.API_URL;
@@ -477,7 +483,7 @@
         // Format slider values for display
         function formatSliderValue(id, value) {
             const v = parseFloat(value);
-            if (id === 'retirement_age' || id === 'marriage_age' || id === 'num_kids') {
+            if (id === 'retirement_age' || id === 'graduation_year') {
                 return v.toString();
             }
             if (id === 'student_loan_debt') {
@@ -498,7 +504,7 @@
         // Initialize all slider displays
         function initSliders() {
             const sliderIds = [
-                'retirement_age', 'student_loan_debt',
+                'starting_salary', 'graduation_year', 'retirement_age', 'student_loan_debt',
                 'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
                 'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
             ];
@@ -513,7 +519,8 @@
 
         function getInputs() {
             return {
-                income_percentile: document.getElementById('income_percentile').value,
+                starting_salary: parseFloat(document.getElementById('starting_salary').value),
+                graduation_year: parseInt(document.getElementById('graduation_year').value),
                 retirement_age: parseInt(document.getElementById('retirement_age').value),
                 student_loan_debt: parseFloat(document.getElementById('student_loan_debt').value),
                 salary_sacrifice_per_year: parseFloat(document.getElementById('salary_sacrifice_per_year').value),
@@ -739,6 +746,22 @@
                     .duration(ANIMATION_DURATION)
                     .call(d3.axisBottom(x).tickValues(data.filter(d => d.age % 5 === 0).map(d => d.age)));
 
+                // Update top x-axis - move year ticks to new positions
+                const yearTicks = [2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065, 2070, 2075, 2080, 2085, 2090, 2095, 2100];
+                chartG.select('.axis.x-axis-top').selectAll('.year-tick')
+                    .data(yearTicks, d => d)
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .attr('transform', year => {
+                        const row = data.find(r => r.year === year);
+                        const xPos = row ? x(row.age) + x.bandwidth() / 2 : -100;
+                        return `translate(${xPos},0)`;
+                    })
+                    .style('opacity', year => {
+                        const row = data.find(r => r.year === year);
+                        return row ? 1 : 0;
+                    });
+
                 // Update net impact line
                 const line = d3.line()
                     .x(d => x(d.age) + x.bandwidth() / 2)
@@ -800,6 +823,45 @@
                     .attr('class', 'axis x-axis')
                     .attr('transform', `translate(0,${height})`)
                     .call(d3.axisBottom(x).tickValues(data.filter(d => d.age % 5 === 0).map(d => d.age)));
+
+                // Top x-axis with fiscal year (e.g. 2029/30 shown as "29")
+                // Use custom tick rendering for smooth position transitions
+                const topAxisG = chartG.append('g')
+                    .attr('class', 'axis x-axis-top');
+
+                // Add axis line
+                topAxisG.append('line')
+                    .attr('class', 'domain')
+                    .attr('x1', 0)
+                    .attr('x2', width)
+                    .attr('stroke', '#e2e8f0');
+
+                // Add year ticks as individual groups
+                const yearTicks = [2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060, 2065, 2070, 2075, 2080, 2085, 2090, 2095, 2100];
+                topAxisG.selectAll('.year-tick')
+                    .data(yearTicks, d => d)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'year-tick')
+                    .attr('transform', year => {
+                        const row = data.find(r => r.year === year);
+                        const xPos = row ? x(row.age) + x.bandwidth() / 2 : -100;
+                        return `translate(${xPos},0)`;
+                    })
+                    .each(function(year) {
+                        const g = d3.select(this);
+                        g.append('line').attr('y2', -6).attr('stroke', '#e2e8f0');
+                        g.append('text')
+                            .attr('y', -9)
+                            .attr('text-anchor', 'middle')
+                            .attr('fill', '#64748b')
+                            .attr('font-size', '11px')
+                            .text(String(year).slice(-2));
+                    })
+                    .style('opacity', year => {
+                        const row = data.find(r => r.year === year);
+                        return row ? 1 : 0;
+                    });
 
                 chartG.append('g')
                     .attr('class', 'axis y-axis')
