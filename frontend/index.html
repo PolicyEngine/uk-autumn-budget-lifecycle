@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifetime policy impact</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
+            padding: 24px;
+            color: #1e293b;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { font-size: 1.75rem; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
+        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 24px; line-height: 1.6; }
+        .layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
+
+        .controls {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: fit-content;
+            position: sticky;
+            top: 24px;
+        }
+        .controls h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+        .control-group { margin-bottom: 14px; }
+        .control-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 500;
+        }
+        .control-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background: #fff;
+            color: #1e293b;
+        }
+        .control-group select:focus {
+            outline: none;
+            border-color: #0f766e;
+            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .slider-container input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e2e8f0;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #0f766e;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .slider-container input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.4);
+        }
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #0f766e;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+        .slider-value {
+            min-width: 65px;
+            text-align: right;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1e293b;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .summary-item {
+            background: #fff;
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .summary-item.highlighted {
+            background: linear-gradient(135deg, #0f766e 0%, #0d6560 100%);
+            box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+        }
+        .summary-item.highlighted .summary-label { color: rgba(255,255,255,0.9); }
+        .summary-item.highlighted .summary-value { color: #fff; }
+        .summary-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .summary-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0f766e;
+            font-variant-numeric: tabular-nums;
+        }
+        .summary-value.positive { color: #0f766e; }
+        .summary-value.negative { color: #dc2626; }
+
+        .chart-container {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #chart { width: 100%; height: 400px; }
+        .axis text { fill: #64748b; font-size: 11px; }
+        .axis path, .axis line { stroke: #e2e8f0; }
+        .grid line { stroke: #f1f5f9; }
+        .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: center; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
+        .download-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .download-btn {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #0f766e;
+            background: #fff;
+            border: 1px solid #0f766e;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .download-btn:hover {
+            background: #0f766e;
+            color: #fff;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 0.85rem;
+            z-index: 100;
+        }
+        .tooltip-title { font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+        .tooltip-row { display: flex; justify-content: space-between; gap: 16px; margin: 3px 0; }
+        .tooltip-label { color: #64748b; }
+        .tooltip-value { font-weight: 500; }
+        .tooltip-value.positive { color: #0f766e; }
+        .tooltip-value.negative { color: #dc2626; }
+        .tooltip-section { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
+        .tooltip-reforms { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .tooltip-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-weight: 600; }
+
+        .age-group rect { cursor: pointer; }
+
+        /* Mobile responsive */
+        @media (max-width: 900px) {
+            body { padding: 16px; }
+            .layout { grid-template-columns: 1fr; }
+            .controls {
+                position: static;
+                margin-bottom: 16px;
+            }
+            .summary { grid-template-columns: 1fr 1fr; }
+            #chart { height: 300px; }
+            h1 { font-size: 1.5rem; }
+        }
+        @media (max-width: 480px) {
+            body { padding: 12px; }
+            .controls { padding: 16px; }
+            .chart-container { padding: 16px; }
+            .summary { grid-template-columns: 1fr; gap: 12px; }
+            .summary-value { font-size: 1.3rem; }
+            #chart { height: 280px; }
+            .legend { gap: 10px; }
+            .legend-item { font-size: 0.7rem; }
+            h1 { font-size: 1.25rem; }
+            .subtitle { font-size: 0.9rem; }
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-title { font-size: 1.25rem; font-weight: 600; }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #888;
+        }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 24px; }
+        .calc-section { margin-bottom: 24px; }
+        .calc-section:last-child { margin-bottom: 0; }
+        .calc-title { font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .calc-dot { width: 10px; height: 10px; border-radius: 3px; }
+        .calc-explanation { color: #666; font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px; }
+        .calc-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+        .calc-table td { padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+        .calc-table td:last-child { text-align: right; font-family: monospace; }
+        .calc-result { font-weight: 600; border-top: 2px solid #e5e5e5 !important; }
+        .calc-result.positive { color: #16a34a; }
+        .calc-result.negative { color: #dc2626; }
+
+        .loading { text-align: center; padding: 40px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Lifetime policy impact</h1>
+        <p class="subtitle">Model the impact of budget reforms on a graduate over their working life</p>
+
+        <div class="layout">
+            <div class="controls">
+                <h2>Household inputs</h2>
+
+                <div class="control-group">
+                    <label>Income percentile</label>
+                    <select id="income_percentile">
+                        <option value="p25">25th (£21k starting)</option>
+                        <option value="p50">50th (£26k starting)</option>
+                        <option value="p75">75th (£31k starting)</option>
+                        <option value="p90" selected>90th (£40k starting)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label>Retirement age</label>
+                    <div class="slider-container">
+                        <input type="range" id="retirement_age" value="67" min="55" max="100" step="1">
+                        <span class="slider-value" id="retirement_age_value">67</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Student loan debt</label>
+                    <div class="slider-container">
+                        <input type="range" id="student_loan_debt" value="50000" min="0" max="100000" step="5000">
+                        <span class="slider-value" id="student_loan_debt_value">£50k</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Salary sacrifice (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="salary_sacrifice_per_year" value="5000" min="0" max="20000" step="500">
+                        <span class="slider-value" id="salary_sacrifice_per_year_value">£5,000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Rail spending (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="rail_spending_per_year" value="2000" min="0" max="10000" step="100">
+                        <span class="slider-value" id="rail_spending_per_year_value">£2,000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Petrol spending (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="petrol_spending_per_year" value="1500" min="0" max="5000" step="100">
+                        <span class="slider-value" id="petrol_spending_per_year_value">£1,500</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Dividends (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="dividends_per_year" value="2000" min="0" max="10000" step="100">
+                        <span class="slider-value" id="dividends_per_year_value">£2,000</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Savings interest (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="savings_interest_per_year" value="1500" min="0" max="5000" step="100">
+                        <span class="slider-value" id="savings_interest_per_year_value">£1,500</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Property income (£/year)</label>
+                    <div class="slider-container">
+                        <input type="range" id="property_income_per_year" value="3000" min="0" max="20000" step="500">
+                        <span class="slider-value" id="property_income_per_year_value">£3,000</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="summary" id="summary"></div>
+                <div class="chart-container">
+                    <div id="chart"><div class="loading">Loading...</div></div>
+                    <div class="legend" id="legend"></div>
+                    <div class="download-buttons">
+                        <button class="download-btn" id="download-svg">Download SVG</button>
+                        <button class="download-btn" id="download-csv">Download CSV</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">Age 30</div>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        // API URL - set via window.API_URL or defaults to localhost
+        const API_URL = window.API_URL || 'http://localhost:8000';
+
+        const reforms = [
+            { key: 'impact_rail_fare_freeze', label: 'Rail fare freeze', color: '#3b82f6' },
+            { key: 'impact_fuel_duty_freeze', label: 'Fuel duty freeze', color: '#eab308' },
+            { key: 'impact_threshold_freeze', label: 'Threshold freeze', color: '#ef4444' },
+            { key: 'impact_unearned_income_tax', label: 'Unearned income tax', color: '#8b5cf6' },
+            { key: 'impact_salary_sacrifice_cap', label: 'Salary sacrifice cap', color: '#14b8a6' },
+            { key: 'impact_sl_threshold_freeze', label: 'SL threshold freeze', color: '#f97316' }
+        ];
+
+        let currentData = [];
+        let previousData = [];
+        const ANIMATION_DURATION = 400;
+
+        // Format slider values for display
+        function formatSliderValue(id, value) {
+            const v = parseFloat(value);
+            if (id === 'retirement_age' || id === 'marriage_age' || id === 'num_kids') {
+                return v.toString();
+            }
+            if (id === 'student_loan_debt') {
+                return `£${Math.round(v / 1000)}k`;
+            }
+            return `£${d3.format(',.0f')(v)}`;
+        }
+
+        // Update slider value displays
+        function updateSliderDisplay(id) {
+            const slider = document.getElementById(id);
+            const display = document.getElementById(`${id}_value`);
+            if (slider && display) {
+                display.textContent = formatSliderValue(id, slider.value);
+            }
+        }
+
+        // Initialize all slider displays
+        function initSliders() {
+            const sliderIds = [
+                'retirement_age', 'student_loan_debt',
+                'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
+                'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
+            ];
+            sliderIds.forEach(id => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                    updateSliderDisplay(id);
+                    slider.addEventListener('input', () => updateSliderDisplay(id));
+                }
+            });
+        }
+
+        function getInputs() {
+            return {
+                income_percentile: document.getElementById('income_percentile').value,
+                retirement_age: parseInt(document.getElementById('retirement_age').value),
+                student_loan_debt: parseFloat(document.getElementById('student_loan_debt').value),
+                salary_sacrifice_per_year: parseFloat(document.getElementById('salary_sacrifice_per_year').value),
+                rail_spending_per_year: parseFloat(document.getElementById('rail_spending_per_year').value),
+                petrol_spending_per_year: parseFloat(document.getElementById('petrol_spending_per_year').value),
+                dividends_per_year: parseFloat(document.getElementById('dividends_per_year').value),
+                savings_interest_per_year: parseFloat(document.getElementById('savings_interest_per_year').value),
+                property_income_per_year: parseFloat(document.getElementById('property_income_per_year').value),
+            };
+        }
+
+        async function fetchData() {
+            const inputs = getInputs();
+            try {
+                const response = await fetch(`${API_URL}/calculate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(inputs)
+                });
+                const result = await response.json();
+                previousData = currentData;
+                currentData = result.data;
+                renderChart(previousData.length > 0);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('chart').innerHTML = '<div class="loading">Error loading data. Is the API running?</div>';
+            }
+        }
+
+        function renderChart(animate = false) {
+            const data = currentData;
+            if (!data.length) return;
+
+            const container = document.getElementById('chart');
+            const existingSvg = d3.select('#chart svg');
+            const isUpdate = existingSvg.size() > 0 && animate;
+
+            // Summary - always update with animation
+            document.getElementById('summary').innerHTML = '';
+            const totals = {};
+            reforms.forEach(r => totals[r.key] = d3.sum(data, d => d[r.key]));
+            const netTotal = d3.sum(Object.values(totals));
+            const avgPerYear = netTotal / data.length;
+
+            const summaryEl = d3.select('#summary');
+
+            // Net lifetime impact (highlighted)
+            const summaryItem = summaryEl.append('div').attr('class', 'summary-item highlighted');
+            summaryItem.append('div').attr('class', 'summary-label').text('Net lifetime impact');
+            const summaryValue = summaryItem.append('div')
+                .attr('class', 'summary-value');
+
+            // Average per year
+            const avgItem = summaryEl.append('div').attr('class', 'summary-item');
+            avgItem.append('div').attr('class', 'summary-label').text('Average per year');
+            const avgValue = avgItem.append('div')
+                .attr('class', `summary-value ${avgPerYear >= 0 ? 'positive' : 'negative'}`);
+
+            // Animate the summary numbers
+            if (animate && previousData.length > 0) {
+                const prevTotals = {};
+                reforms.forEach(r => prevTotals[r.key] = d3.sum(previousData, d => d[r.key] || 0));
+                const prevNetTotal = d3.sum(Object.values(prevTotals));
+                const prevAvgPerYear = previousData.length > 0 ? prevNetTotal / previousData.length : 0;
+
+                summaryValue.transition()
+                    .duration(ANIMATION_DURATION)
+                    .tween('text', function() {
+                        const i = d3.interpolateNumber(prevNetTotal, netTotal);
+                        return function(t) {
+                            this.textContent = `£${d3.format('+,.0f')(i(t))}`;
+                        };
+                    });
+
+                avgValue.transition()
+                    .duration(ANIMATION_DURATION)
+                    .tween('text', function() {
+                        const i = d3.interpolateNumber(prevAvgPerYear, avgPerYear);
+                        return function(t) {
+                            this.textContent = `£${d3.format('+,.0f')(i(t))}`;
+                        };
+                    });
+            } else {
+                summaryValue.text(`£${d3.format('+,.0f')(netTotal)}`);
+                avgValue.text(`£${d3.format('+,.0f')(avgPerYear)}`);
+            }
+
+            // Chart dimensions
+            const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            // Prepare stacked data
+            const stackedData = data.map(d => {
+                let posY = 0, negY = 0;
+                const bars = reforms.map(r => {
+                    const value = d[r.key];
+                    const bar = { key: r.key, value, age: d.age, year: d.year };
+                    if (value >= 0) {
+                        bar.y0 = posY;
+                        bar.y1 = posY + value;
+                        posY += value;
+                    } else {
+                        bar.y1 = negY;
+                        bar.y0 = negY + value;
+                        negY += value;
+                    }
+                    return bar;
+                });
+                const netImpact = posY + negY;
+                return {
+                    age: d.age,
+                    year: d.year,
+                    bars,
+                    posTotal: posY,
+                    negTotal: negY,
+                    netImpact,
+                    // Include full row data for tooltip
+                    gross_income: d.gross_income,
+                    income_tax: d.income_tax,
+                    national_insurance: d.national_insurance,
+                    student_loan_payment: d.student_loan_payment,
+                    student_loan_debt_remaining: d.student_loan_debt_remaining,
+                    baseline_net_income: d.baseline_net_income
+                };
+            });
+
+            const yMax = d3.max(stackedData, d => d.posTotal);
+            const yMin = d3.min(stackedData, d => d.negTotal);
+
+            const x = d3.scaleBand()
+                .domain(data.map(d => d.age))
+                .range([0, width])
+                .padding(0.15);
+
+            const y = d3.scaleLinear()
+                .domain([yMin * 1.1, yMax * 1.1])
+                .range([height, 0]);
+
+            let svg, chartG;
+
+            if (isUpdate) {
+                // Update existing chart with transitions
+                svg = existingSvg;
+                chartG = svg.select('g');
+
+                // Update y-axis with transition
+                chartG.select('.axis.y-axis')
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .call(d3.axisLeft(y).tickFormat(d => `£${d3.format(',.0f')(d)}`).ticks(8));
+
+                // Update grid
+                chartG.select('.grid')
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .call(d3.axisLeft(y).tickSize(-width).tickFormat('').ticks(8));
+
+                // Update zero line
+                chartG.select('.zero-line')
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .attr('y1', y(0))
+                    .attr('y2', y(0));
+
+                // Update bars with animation
+                const ageGroups = chartG.selectAll('.age-group')
+                    .data(stackedData, d => d.age);
+
+                // Handle age groups that might be added/removed (retirement age change)
+                const enterGroups = ageGroups.enter()
+                    .append('g')
+                    .attr('class', 'age-group')
+                    .attr('transform', d => `translate(${x(d.age)},0)`);
+
+                enterGroups.selectAll('rect')
+                    .data(d => d.bars)
+                    .enter()
+                    .append('rect')
+                    .attr('x', 0)
+                    .attr('y', y(0))
+                    .attr('width', x.bandwidth())
+                    .attr('height', 0)
+                    .attr('fill', d => reforms.find(r => r.key === d.key).color)
+                    .attr('rx', 1);
+
+                // Remove old groups
+                ageGroups.exit()
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .style('opacity', 0)
+                    .remove();
+
+                // Update existing groups
+                ageGroups.transition()
+                    .duration(ANIMATION_DURATION)
+                    .attr('transform', d => `translate(${x(d.age)},0)`);
+
+                // Update rects in all groups
+                chartG.selectAll('.age-group').each(function(groupData) {
+                    const group = d3.select(this);
+                    const rects = group.selectAll('rect').data(groupData.bars);
+
+                    rects.enter()
+                        .append('rect')
+                        .attr('x', 0)
+                        .attr('y', y(0))
+                        .attr('width', x.bandwidth())
+                        .attr('height', 0)
+                        .attr('fill', d => reforms.find(r => r.key === d.key).color)
+                        .attr('rx', 1)
+                        .merge(rects)
+                        .transition()
+                        .duration(ANIMATION_DURATION)
+                        .attr('width', x.bandwidth())
+                        .attr('y', d => y(Math.max(d.y0, d.y1)))
+                        .attr('height', d => Math.abs(y(d.y0) - y(d.y1)));
+                });
+
+                // Update x-axis
+                chartG.select('.axis.x-axis')
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .call(d3.axisBottom(x).tickValues(data.filter(d => d.age % 5 === 0).map(d => d.age)));
+
+                // Update net impact line
+                const line = d3.line()
+                    .x(d => x(d.age) + x.bandwidth() / 2)
+                    .y(d => y(d.netImpact))
+                    .curve(d3.curveMonotoneX);
+
+                chartG.select('.net-line')
+                    .datum(stackedData)
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .attr('d', line);
+
+            } else {
+                // Initial render
+                document.getElementById('chart').innerHTML = '';
+                document.getElementById('legend').innerHTML = '';
+
+                svg = d3.select('#chart')
+                    .append('svg')
+                    .attr('width', width + margin.left + margin.right)
+                    .attr('height', height + margin.top + margin.bottom);
+
+                chartG = svg.append('g')
+                    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+                chartG.append('g')
+                    .attr('class', 'grid')
+                    .call(d3.axisLeft(y).tickSize(-width).tickFormat('').ticks(8));
+
+                chartG.append('line')
+                    .attr('class', 'zero-line')
+                    .attr('x1', 0).attr('x2', width)
+                    .attr('y1', y(0)).attr('y2', y(0))
+                    .attr('stroke', '#ccc');
+
+                const ageGroups = chartG.selectAll('.age-group')
+                    .data(stackedData, d => d.age)
+                    .enter()
+                    .append('g')
+                    .attr('class', 'age-group')
+                    .attr('transform', d => `translate(${x(d.age)},0)`);
+
+                ageGroups.selectAll('rect')
+                    .data(d => d.bars)
+                    .enter()
+                    .append('rect')
+                    .attr('x', 0)
+                    .attr('y', y(0))
+                    .attr('width', x.bandwidth())
+                    .attr('height', 0)
+                    .attr('fill', d => reforms.find(r => r.key === d.key).color)
+                    .attr('rx', 1)
+                    .transition()
+                    .duration(ANIMATION_DURATION)
+                    .attr('y', d => y(Math.max(d.y0, d.y1)))
+                    .attr('height', d => Math.abs(y(d.y0) - y(d.y1)));
+
+                chartG.append('g')
+                    .attr('class', 'axis x-axis')
+                    .attr('transform', `translate(0,${height})`)
+                    .call(d3.axisBottom(x).tickValues(data.filter(d => d.age % 5 === 0).map(d => d.age)));
+
+                chartG.append('g')
+                    .attr('class', 'axis y-axis')
+                    .call(d3.axisLeft(y).tickFormat(d => `£${d3.format(',.0f')(d)}`).ticks(8));
+
+                // Net impact line
+                const line = d3.line()
+                    .x(d => x(d.age) + x.bandwidth() / 2)
+                    .y(d => y(d.netImpact))
+                    .curve(d3.curveMonotoneX);
+
+                chartG.append('path')
+                    .datum(stackedData)
+                    .attr('class', 'net-line')
+                    .attr('fill', 'none')
+                    .attr('stroke', '#1a1a1a')
+                    .attr('stroke-width', 2.5)
+                    .attr('stroke-dasharray', function() {
+                        const length = this.getTotalLength ? this.getTotalLength() : 0;
+                        return `${length} ${length}`;
+                    })
+                    .attr('stroke-dashoffset', function() {
+                        return this.getTotalLength ? this.getTotalLength() : 0;
+                    })
+                    .attr('d', line)
+                    .transition()
+                    .duration(ANIMATION_DURATION * 2)
+                    .attr('stroke-dashoffset', 0);
+
+                // Legend
+                const legend = d3.select('#legend');
+                reforms.forEach(r => {
+                    legend.append('div')
+                        .attr('class', 'legend-item')
+                        .html(`<div class="legend-color" style="background:${r.color}"></div><span>${r.label}</span>`);
+                });
+                // Add net impact to legend
+                legend.append('div')
+                    .attr('class', 'legend-item')
+                    .html(`<div class="legend-color" style="background:#1a1a1a"></div><span>Net impact</span>`);
+            }
+
+            // Rebind tooltip and click events
+            chartG.selectAll('.age-group')
+                .data(stackedData, d => d.age)
+                .on('mouseover', function(event, d) {
+                    tooltip.style('opacity', 1);
+                    let html = `<div class="tooltip-title">Age ${d.age} (${d.year})</div>`;
+
+                    // Model details section
+                    html += `<div class="tooltip-section">`;
+                    html += `<div class="tooltip-row"><span class="tooltip-label">Gross income</span><span class="tooltip-value">£${d3.format(',.0f')(d.gross_income)}</span></div>`;
+                    if (d.income_tax > 0) {
+                        html += `<div class="tooltip-row"><span class="tooltip-label">Income tax</span><span class="tooltip-value">-£${d3.format(',.0f')(d.income_tax)}</span></div>`;
+                    }
+                    if (d.national_insurance > 0) {
+                        html += `<div class="tooltip-row"><span class="tooltip-label">National insurance</span><span class="tooltip-value">-£${d3.format(',.0f')(d.national_insurance)}</span></div>`;
+                    }
+                    if (d.student_loan_payment > 0) {
+                        html += `<div class="tooltip-row"><span class="tooltip-label">Student loan</span><span class="tooltip-value">-£${d3.format(',.0f')(d.student_loan_payment)}</span></div>`;
+                    }
+                    if (d.student_loan_debt_remaining > 0) {
+                        html += `<div class="tooltip-row"><span class="tooltip-label">SL debt remaining</span><span class="tooltip-value">£${d3.format(',.0f')(d.student_loan_debt_remaining)}</span></div>`;
+                    }
+                    html += `</div>`;
+
+                    // Reform impacts section
+                    const activeReforms = d.bars.filter(b => b.value !== 0);
+                    if (activeReforms.length > 0) {
+                        html += `<div class="tooltip-section tooltip-reforms">`;
+                        activeReforms.forEach(bar => {
+                            const reform = reforms.find(r => r.key === bar.key);
+                            html += `<div class="tooltip-row">
+                                <span class="tooltip-label">${reform.label}</span>
+                                <span class="tooltip-value ${bar.value >= 0 ? 'positive' : 'negative'}">£${d3.format('+,.0f')(bar.value)}</span>
+                            </div>`;
+                        });
+                        html += `</div>`;
+                    }
+
+                    const total = d3.sum(d.bars, b => b.value);
+                    html += `<div class="tooltip-row tooltip-total">
+                        <span>Net policy impact</span>
+                        <span class="tooltip-value ${total >= 0 ? 'positive' : 'negative'}">£${d3.format('+,.0f')(total)}</span>
+                    </div>`;
+                    tooltip.html(html);
+                })
+                .on('mousemove', function(event) {
+                    tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', function() {
+                    tooltip.style('opacity', 0);
+                })
+                .on('click', function(event, d) {
+                    showModal(d.age);
+                });
+        }
+
+        const tooltip = d3.select('#tooltip');
+
+        // Modal
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const modalClose = document.getElementById('modal-close');
+
+        modalClose.addEventListener('click', () => modalOverlay.classList.remove('active'));
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+        });
+
+        function showModal(age) {
+            const row = currentData.find(d => d.age === age);
+            if (!row) return;
+
+            const year = row.year;
+            const gross = row.gross_income;
+            const slDebt = row.student_loan_debt_remaining;
+
+            modalTitle.textContent = `Age ${age} (${year})`;
+
+            let html = `
+                <div class="calc-section">
+                    <div class="calc-title">Summary</div>
+                    <table class="calc-table">
+                        <tr><td>Gross income</td><td>£${d3.format(',.0f')(gross)}</td></tr>
+                        <tr><td>Income tax</td><td>£${d3.format(',.0f')(row.income_tax)}</td></tr>
+                        <tr><td>National insurance</td><td>£${d3.format(',.0f')(row.national_insurance)}</td></tr>
+                        <tr><td>Student loan payment</td><td>£${d3.format(',.0f')(row.student_loan_payment)}</td></tr>
+                        <tr><td>Student loan debt remaining</td><td>£${d3.format(',.0f')(slDebt)}</td></tr>
+                    </table>
+                </div>
+            `;
+
+            reforms.forEach(r => {
+                const impact = row[r.key];
+                html += `
+                    <div class="calc-section">
+                        <div class="calc-title"><span class="calc-dot" style="background:${r.color}"></span>${r.label}</div>
+                        <table class="calc-table">
+                            <tr><td>Year</td><td>${year}</td></tr>
+                            <tr class="calc-result ${impact >= 0 ? 'positive' : 'negative'}"><td>Impact</td><td>£${d3.format('+,.0f')(impact)}</td></tr>
+                        </table>
+                    </div>
+                `;
+            });
+
+            const netImpact = reforms.reduce((sum, r) => sum + row[r.key], 0);
+            html += `
+                <div class="calc-section">
+                    <div class="calc-title">Net impact at age ${age}</div>
+                    <table class="calc-table">
+                        <tr class="calc-result ${netImpact >= 0 ? 'positive' : 'negative'}"><td>Total</td><td>£${d3.format('+,.0f')(netImpact)}</td></tr>
+                    </table>
+                </div>
+            `;
+
+            modalBody.innerHTML = html;
+            modalOverlay.classList.add('active');
+        }
+
+        // Debounce function for smoother slider interaction
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        const debouncedFetch = debounce(fetchData, 50);
+
+        // Event listeners - use 'input' for live updates while dragging
+        document.querySelectorAll('.controls input[type="range"]').forEach(el => {
+            el.addEventListener('input', debouncedFetch);
+        });
+        document.querySelectorAll('.controls select').forEach(el => {
+            el.addEventListener('change', fetchData);
+        });
+
+        // Download SVG
+        function downloadSVG() {
+            const svg = document.querySelector('#chart svg');
+            if (!svg) return;
+
+            // Clone SVG and add styles inline
+            const clone = svg.cloneNode(true);
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+            // Add inline styles for proper rendering
+            const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+            style.textContent = `
+                .axis text { fill: #64748b; font-size: 11px; font-family: Roboto, sans-serif; }
+                .axis path, .axis line { stroke: #e2e8f0; }
+                .grid line { stroke: #f1f5f9; }
+            `;
+            clone.insertBefore(style, clone.firstChild);
+
+            const serializer = new XMLSerializer();
+            const svgString = serializer.serializeToString(clone);
+            const blob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lifetime-policy-impact.svg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Download CSV
+        function downloadCSV() {
+            if (!currentData.length) return;
+
+            const headers = [
+                'age', 'year', 'gross_income', 'income_tax', 'national_insurance',
+                'student_loan_payment', 'student_loan_debt_remaining', 'baseline_net_income',
+                'impact_rail_fare_freeze', 'impact_fuel_duty_freeze', 'impact_threshold_freeze',
+                'impact_unearned_income_tax', 'impact_salary_sacrifice_cap', 'impact_sl_threshold_freeze',
+                'net_policy_impact'
+            ];
+
+            const rows = currentData.map(row => {
+                const netImpact = reforms.reduce((sum, r) => sum + (row[r.key] || 0), 0);
+                return [
+                    row.age, row.year, row.gross_income, row.income_tax, row.national_insurance,
+                    row.student_loan_payment, row.student_loan_debt_remaining, row.baseline_net_income,
+                    row.impact_rail_fare_freeze, row.impact_fuel_duty_freeze, row.impact_threshold_freeze,
+                    row.impact_unearned_income_tax, row.impact_salary_sacrifice_cap, row.impact_sl_threshold_freeze,
+                    netImpact
+                ].join(',');
+            });
+
+            const csv = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lifetime-policy-impact.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Download button listeners
+        document.getElementById('download-svg').addEventListener('click', downloadSVG);
+        document.getElementById('download-csv').addEventListener('click', downloadCSV);
+
+        // Initial load
+        initSliders();
+        fetchData();
+    </script>
+</body>
+</html>
