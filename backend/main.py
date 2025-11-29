@@ -220,7 +220,25 @@ def calculate_salary_sacrifice_impact(salary_sacrifice: float, gross_income: flo
 
 def calculate_unearned_income_tax(dividends: float, savings_interest: float, property_income: float,
                                    gross_income: float, increased_tax: bool = False) -> float:
-    if gross_income > BASIC_RATE_THRESHOLD:
+    """Calculate tax on unearned income (dividends, savings, property).
+
+    Personal allowance is applied first to earned income, then any remaining
+    allowance reduces unearned income. Order of taxation: savings interest,
+    then dividends, then property income.
+    """
+    # Calculate remaining personal allowance after earned income
+    remaining_pa = max(0, PERSONAL_ALLOWANCE - gross_income)
+
+    # Total unearned income
+    total_unearned = dividends + savings_interest + property_income
+
+    # If personal allowance covers all unearned income, no tax
+    if remaining_pa >= total_unearned:
+        return 0.0
+
+    # Determine tax rates based on total income (earned + unearned)
+    total_income = gross_income + total_unearned
+    if total_income > BASIC_RATE_THRESHOLD:
         savings_allowance = SAVINGS_ALLOWANCE_HIGHER
         dividend_rate = 0.3375
         savings_rate = HIGHER_RATE
@@ -228,9 +246,26 @@ def calculate_unearned_income_tax(dividends: float, savings_interest: float, pro
         savings_allowance = SAVINGS_ALLOWANCE_BASIC
         dividend_rate = 0.0875
         savings_rate = BASIC_RATE
-    taxable_dividends = max(0, dividends - DIVIDEND_ALLOWANCE)
-    taxable_savings = max(0, savings_interest - savings_allowance)
-    tax = taxable_dividends * dividend_rate + taxable_savings * savings_rate + property_income * savings_rate
+
+    # Apply remaining PA to unearned income (savings first, then dividends, then property)
+    # Reduce each income type by the PA used
+    pa_used = 0
+
+    # Savings interest (taxed first, benefits from starting rate band)
+    savings_after_pa = max(0, savings_interest - max(0, remaining_pa - pa_used))
+    pa_used += min(savings_interest, max(0, remaining_pa - pa_used))
+    taxable_savings = max(0, savings_after_pa - savings_allowance)
+
+    # Dividends (taxed next)
+    dividends_after_pa = max(0, dividends - max(0, remaining_pa - pa_used))
+    pa_used += min(dividends, max(0, remaining_pa - pa_used))
+    taxable_dividends = max(0, dividends_after_pa - DIVIDEND_ALLOWANCE)
+
+    # Property income (taxed last)
+    property_after_pa = max(0, property_income - max(0, remaining_pa - pa_used))
+    taxable_property = property_after_pa
+
+    tax = taxable_dividends * dividend_rate + taxable_savings * savings_rate + taxable_property * savings_rate
     if increased_tax:
         tax *= 1.05
     return tax
