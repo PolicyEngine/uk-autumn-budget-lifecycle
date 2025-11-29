@@ -49,13 +49,48 @@ STUDENT_LOAN_THRESHOLD_PLAN2 = 27_295
 STUDENT_LOAN_RATE = 0.09
 STUDENT_LOAN_FORGIVENESS_YEARS = 30
 
-# Fuel duty rates (per litre)
-# Current rate: 52.95p (frozen with 5p cut)
-# Reform for FY 2026-27: extend 5p cut to Aug 2026, then +1p Sep, +2p Dec, +2p Mar
-# Weighted average for FY 2026-27: (5*52.95 + 3*53.95 + 3*55.95 + 1*57.95) / 12 = 54.37p
-FUEL_DUTY_CURRENT = 0.5295
-FUEL_DUTY_FY_2026_27 = (5 * 0.5295 + 3 * 0.5395 + 3 * 0.5595 + 1 * 0.5795) / 12  # ~0.5437
-FUEL_DUTY_UNFROZEN = 0.58
+# Fuel duty rates (£ per litre) - calendar year averages
+# Source: PolicyEngine-UK implementation and fuel-duty-freeze-2025 report
+# https://policyengine.org/uk/research/fuel-duty-freeze-2025
+#
+# Baseline (without Autumn Budget): 5p cut ends Mar 2026, rate returns to 57.95p,
+# then RPI uprating from April 2026 (4.1% in 2026-27, 3.2% in 2027-28, 2.9% thereafter)
+#
+# Reform (Autumn Budget): Freeze at 52.95p until Sep 2026, staggered reversal to 57.95p
+# by Mar 2027, then same RPI uprating from April 2027
+#
+# Using calendar year averages (as per policyengine-uk methodology) to match how
+# PolicyEngine calculates annual impacts. This ensures consistent treatment.
+
+# Baseline rates by calendar year (counterfactual: 5p cut ends Mar 2026)
+# Pre-AB: 5p cut expires Mar 2026, returns to 57.95p, then RPI uprating from Apr 2026
+FUEL_DUTY_BASELINE = {
+    2025: 0.5295,  # 5p cut still in effect (same as reform)
+    # 2026 avg: Jan-Mar at 52.95p (91 days), Apr-Dec at 60.33p (275 days)
+    # 60.33p = 57.95p * 1.041 (RPI uprating)
+    2026: (0.5295 * 91 + 0.6033 * 275) / 366,  # ~0.5849
+    # 2027 avg: Jan-Mar at 60.33p (90 days), Apr-Dec at 62.26p (275 days)
+    # 62.26p = 60.33p * 1.032 (RPI uprating)
+    2027: (0.6033 * 90 + 0.6226 * 275) / 365,  # ~0.6179
+    # 2028 avg: Jan-Mar at 62.26p (91 days), Apr-Dec at 64.06p (275 days)
+    2028: (0.6226 * 91 + 0.6406 * 275) / 366,  # ~0.6361
+    # 2029 avg: Jan-Mar at 64.06p (90 days), Apr-Dec at 65.92p (275 days)
+    2029: (0.6406 * 90 + 0.6592 * 275) / 365,  # ~0.6546
+}
+
+# Reform rates by calendar year (Autumn Budget policy)
+# From policyengine-uk/parameters/gov/hmrc/fuel_duty/petrol_and_diesel.yaml
+FUEL_DUTY_REFORM = {
+    2025: 0.5295,  # 5p cut extended (same as baseline)
+    2026: 0.5345,  # Calendar year avg with staggered increases
+    2027: 0.5902,  # Calendar year avg transitioning to RPI uprating
+    2028: 0.6111,  # RPI uprating from 2027
+    2029: 0.6290,  # RPI uprating continues
+}
+
+# Long-term RPI growth rate for projecting beyond 2029
+FUEL_DUTY_RPI_LONG_TERM = 0.029  # 2.9% per OBR projections
+
 AVG_PETROL_PRICE_PER_LITRE = 1.40
 
 SALARY_SACRIFICE_CAP = 2_000
@@ -212,24 +247,58 @@ def calculate_student_loan(
     return repayment, max(0, new_debt)
 
 
-def calculate_fuel_duty_impact(petrol_spending: float, fiscal_year: int) -> float:
-    """Calculate impact of fuel duty freeze/reform vs unfrozen baseline.
+def get_fuel_duty_rate(year: int, is_reform: bool) -> float:
+    """Get fuel duty rate for a given year.
 
-    Policy takes effect from 2026 (FY 2026-27).
-    FY 2026-27: Phased increase (weighted average ~54.37p)
-    FY 2027-28 onwards: Full rate of 57.95p
+    Args:
+        year: Calendar year
+        is_reform: True for Autumn Budget reform rates, False for baseline
+
+    Returns:
+        Fuel duty rate in £ per litre
     """
-    if fiscal_year < 2026:
-        # No impact before policy takes effect
-        return 0
-    elif fiscal_year == 2026:
-        # FY 2026-27: weighted average of phased increases
-        reform_rate = FUEL_DUTY_FY_2026_27
-    else:
-        # FY 2027-28 onwards: 57.95p (52.95 + 5p of increases)
-        reform_rate = 0.5795
+    rates = FUEL_DUTY_REFORM if is_reform else FUEL_DUTY_BASELINE
 
-    return petrol_spending * (FUEL_DUTY_UNFROZEN - reform_rate) / AVG_PETROL_PRICE_PER_LITRE
+    if year in rates:
+        return rates[year]
+
+    # For years beyond 2029, extrapolate with RPI growth
+    last_year = max(rates.keys())
+    last_rate = rates[last_year]
+    years_ahead = year - last_year
+    return last_rate * ((1 + FUEL_DUTY_RPI_LONG_TERM) ** years_ahead)
+
+
+def calculate_fuel_duty_impact(petrol_spending: float, year: int) -> float:
+    """Calculate savings from fuel duty freeze/reform vs baseline (counterfactual).
+
+    The Autumn Budget extends the 5p cut with staggered reversal. Without the Budget,
+    the 5p cut would have ended in March 2026, returning rates to 57.95p with RPI
+    uprating from April 2026.
+
+    Impact = what you'd pay under baseline - what you pay under reform
+    Positive value = savings (lower fuel costs)
+
+    Args:
+        petrol_spending: Annual petrol spending in £
+        year: Calendar year
+
+    Returns:
+        Annual savings from the policy (positive = benefit)
+    """
+    if year < 2026:
+        # No difference before policy diverges
+        return 0
+
+    baseline_rate = get_fuel_duty_rate(year, is_reform=False)
+    reform_rate = get_fuel_duty_rate(year, is_reform=True)
+
+    # Fuel duty is embedded in the petrol price
+    # Savings = (baseline_rate - reform_rate) * litres consumed
+    # litres = petrol_spending / price_per_litre
+    litres = petrol_spending / AVG_PETROL_PRICE_PER_LITRE
+
+    return (baseline_rate - reform_rate) * litres
 
 
 def calculate_rail_impact(rail_spending_base: float, current_year: int, base_year: int = 2024) -> float:
