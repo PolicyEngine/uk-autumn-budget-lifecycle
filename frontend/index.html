@@ -17,8 +17,17 @@
             -webkit-font-smoothing: antialiased;
         }
         .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 24px;
+        }
+        .header-content { flex: 1; }
+        .header-logo img { opacity: 0.9; transition: opacity 0.15s; }
+        .header-logo:hover img { opacity: 1; }
         h1 { font-size: 1.75rem; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
-        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 24px; line-height: 1.6; }
+        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 0; line-height: 1.6; }
         .layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
 
         .controls {
@@ -143,7 +152,16 @@
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
         }
+        .chart-watermark {
+            position: absolute;
+            bottom: 70px;
+            right: 30px;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+        .chart-watermark img { height: 24px; }
         #chart { width: 100%; height: 400px; }
         .axis text { fill: #64748b; font-size: 11px; }
         .axis path, .axis line { stroke: #e2e8f0; }
@@ -429,8 +447,15 @@
 </head>
 <body>
     <div class="container">
-        <h1>Lifetime policy impact</h1>
-        <p class="subtitle">Model the impact of UK budget policy reforms over your lifetime</p>
+        <div class="header">
+            <div class="header-content">
+                <h1>Lifetime policy impact</h1>
+                <p class="subtitle">Model the impact of UK budget policy reforms over your lifetime</p>
+            </div>
+            <a href="https://policyengine.org" target="_blank" class="header-logo">
+                <img src="assets/policyengine-logo.svg" alt="PolicyEngine" height="36">
+            </a>
+        </div>
 
         <div class="layout">
             <div class="controls">
@@ -539,6 +564,11 @@
                 <div class="summary" id="summary"></div>
                 <div class="chart-container">
                     <div id="chart"><div class="loading">Loading...</div></div>
+                    <div class="chart-watermark">
+                        <a href="https://policyengine.org" target="_blank">
+                            <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
+                        </a>
+                    </div>
                     <div class="legend" id="legend"></div>
                     <div class="download-buttons">
                         <button class="download-btn" id="download-svg">Download SVG</button>
