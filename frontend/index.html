@@ -430,25 +430,25 @@
 <body>
     <div class="container">
         <h1>Lifetime policy impact</h1>
-        <p class="subtitle">Model the impact of budget reforms on a graduate over their working life</p>
+        <p class="subtitle">Model the impact of UK budget policy reforms over your lifetime</p>
 
         <div class="layout">
             <div class="controls">
                 <h2>Household inputs</h2>
 
                 <div class="control-group">
-                    <label>Starting salary</label>
+                    <label>Current age</label>
                     <div class="slider-container">
-                        <input type="range" id="starting_salary" value="30000" min="0" max="80000" step="1000">
-                        <span class="slider-value" id="starting_salary_value">£30,000</span>
+                        <input type="range" id="current_age" value="30" min="18" max="80" step="1">
+                        <span class="slider-value" id="current_age_value">30</span>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <label>Graduation year</label>
+                    <label>Current salary (2025)</label>
                     <div class="slider-container">
-                        <input type="range" id="graduation_year" value="2024" min="2020" max="2030" step="1">
-                        <span class="slider-value" id="graduation_year_value">2024</span>
+                        <input type="range" id="current_salary" value="40000" min="0" max="200000" step="1000">
+                        <span class="slider-value" id="current_salary_value">£40,000</span>
                     </div>
                 </div>
 
@@ -457,6 +457,14 @@
                     <div class="slider-container">
                         <input type="range" id="retirement_age" value="67" min="55" max="100" step="1">
                         <span class="slider-value" id="retirement_age_value">67</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>Life expectancy</label>
+                    <div class="slider-container">
+                        <input type="range" id="life_expectancy" value="85" min="60" max="100" step="1">
+                        <span class="slider-value" id="life_expectancy_value">85</span>
                     </div>
                 </div>
 
@@ -675,7 +683,7 @@
         // Format slider values for display
         function formatSliderValue(id, value) {
             const v = parseFloat(value);
-            if (id === 'retirement_age' || id === 'graduation_year') {
+            if (id === 'current_age' || id === 'retirement_age' || id === 'life_expectancy') {
                 return v.toString();
             }
             if (id === 'student_loan_debt') {
@@ -696,7 +704,7 @@
         // Initialize all slider displays
         function initSliders() {
             const sliderIds = [
-                'starting_salary', 'graduation_year', 'retirement_age', 'student_loan_debt',
+                'current_age', 'current_salary', 'retirement_age', 'life_expectancy', 'student_loan_debt',
                 'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
                 'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
             ];
@@ -711,9 +719,10 @@
 
         function getInputs() {
             return {
-                starting_salary: parseFloat(document.getElementById('starting_salary').value),
-                graduation_year: parseInt(document.getElementById('graduation_year').value),
+                current_age: parseInt(document.getElementById('current_age').value),
+                current_salary: parseFloat(document.getElementById('current_salary').value),
                 retirement_age: parseInt(document.getElementById('retirement_age').value),
+                life_expectancy: parseInt(document.getElementById('life_expectancy').value),
                 student_loan_debt: parseFloat(document.getElementById('student_loan_debt').value),
                 salary_sacrifice_per_year: parseFloat(document.getElementById('salary_sacrifice_per_year').value),
                 rail_spending_per_year: parseFloat(document.getElementById('rail_spending_per_year').value),
@@ -1361,7 +1370,8 @@
             const income = row.gross_income;
             const year = row.year;
             const inputs = getInputs();
-            const yearsFromGrad = year - inputs.graduation_year;
+            // Years since graduation (assuming graduation at age 22)
+            const yearsFromGrad = row.age - 22;
 
             // Policy takes effect from 2027 (when threshold was due to be uprated)
             if (year < 2027) {
