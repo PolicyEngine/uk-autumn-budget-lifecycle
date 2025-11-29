@@ -709,7 +709,6 @@
                 previousData = currentData;
                 currentData = result.data;
                 renderChart(previousData.length > 0);
-                updateDetailChart();
             } catch (error) {
                 console.error('Error fetching data:', error);
                 document.getElementById('chart').innerHTML = '<div class="loading">Error loading data. Is the API running?</div>';
@@ -2017,81 +2016,6 @@
                 </div>
             `;
             container.innerHTML = html;
-        }
-
-        // Tab switching
-        let activeTab = 'tax';
-        document.querySelectorAll('.detail-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                activeTab = tab.dataset.tab;
-
-                document.querySelectorAll('.detail-panel').forEach(p => p.style.display = 'none');
-                const panelId = activeTab === 'tax' ? 'tax-detail-chart' :
-                               activeTab === 'student-loan' ? 'student-loan-detail' :
-                               activeTab === 'salary-sacrifice' ? 'salary-sacrifice-detail' :
-                               activeTab === 'rail-fare' ? 'rail-fare-detail' :
-                               activeTab === 'fuel-duty' ? 'fuel-duty-detail' :
-                               activeTab === 'unearned-income' ? 'unearned-income-detail' : null;
-                if (panelId) {
-                    document.getElementById(panelId).style.display = 'block';
-                }
-
-                renderActiveDetailChart();
-            });
-        });
-
-        function renderActiveDetailChart() {
-            const age = parseInt(detailAgeSlider.value);
-            if (activeTab === 'tax') {
-                renderTaxDetailChart(age);
-            } else if (activeTab === 'student-loan') {
-                renderStudentLoanDetail(age);
-            } else if (activeTab === 'salary-sacrifice') {
-                renderSalarySacrificeDetail(age);
-            } else if (activeTab === 'rail-fare') {
-                renderRailFareDetail(age);
-            } else if (activeTab === 'fuel-duty') {
-                renderFuelDutyDetail(age);
-            } else if (activeTab === 'unearned-income') {
-                renderUnearnedIncomeDetail(age);
-            }
-        }
-
-        // Age slider for detail chart
-        const detailAgeSlider = document.getElementById('detail-age');
-        const detailAgeValue = document.getElementById('detail-age-value');
-
-        if (detailAgeSlider) {
-            detailAgeSlider.addEventListener('input', () => {
-                const age = parseInt(detailAgeSlider.value);
-                const row = currentData.find(d => d.age === age);
-                const year = row ? row.year : '';
-                detailAgeValue.textContent = year ? `Age ${age} (${year})` : `Age ${age}`;
-                renderActiveDetailChart();
-            });
-        }
-
-        function updateDetailChart() {
-            if (!detailAgeSlider || !currentData.length) return;
-
-            // Update slider bounds based on data
-            const workingData = currentData.filter(d => d.gross_income > 0);
-            if (workingData.length > 0) {
-                detailAgeSlider.min = workingData[0].age;
-                detailAgeSlider.max = workingData[workingData.length - 1].age;
-                // Keep current value if valid, otherwise use midpoint
-                const currentAge = parseInt(detailAgeSlider.value);
-                if (currentAge < workingData[0].age || currentAge > workingData[workingData.length - 1].age) {
-                    detailAgeSlider.value = Math.floor((workingData[0].age + workingData[workingData.length - 1].age) / 2);
-                }
-            }
-            const age = parseInt(detailAgeSlider.value);
-            const row = currentData.find(d => d.age === age);
-            const year = row ? row.year : '';
-            detailAgeValue.textContent = year ? `Age ${age} (${year})` : `Age ${age}`;
-            renderActiveDetailChart();
         }
 
         const tooltip = d3.select('#tooltip');
