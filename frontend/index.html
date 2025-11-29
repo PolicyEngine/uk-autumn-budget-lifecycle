@@ -534,7 +534,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label title="Initial debt at graduation. Accrues interest (RPI+3%) and gets paid down over time.">Student loan debt</label>
+                    <label title="Initial debt at graduation. Evolves based on interest and repayments.">Student loan debt</label>
                     <div class="slider-container">
                         <input type="range" id="student_loan_debt" value="45000" min="0" max="100000" step="5000">
                         <span class="slider-value" id="student_loan_debt_value">£45k</span>
@@ -550,7 +550,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label title="Annual rail commuting costs. Grows with RPI (rail fare inflation).">Rail spending</label>
+                    <label title="Annual rail spending (fixed nominal). Policy impact uses RPI fare growth.">Rail spending</label>
                     <div class="slider-container">
                         <input type="range" id="rail_spending_per_year" value="2000" min="0" max="10000" step="100">
                         <span class="slider-value" id="rail_spending_per_year_value">£2,000</span>
@@ -558,7 +558,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label title="Annual petrol costs. Fuel duty increases apply to this amount.">Petrol spending</label>
+                    <label title="Annual petrol spending (fixed nominal). Policy impact uses fuel duty changes.">Petrol spending</label>
                     <div class="slider-container">
                         <input type="range" id="petrol_spending_per_year" value="500" min="0" max="10000" step="100">
                         <span class="slider-value" id="petrol_spending_per_year_value">£500</span>
@@ -662,7 +662,7 @@
                     <tr>
                         <td>Student loan debt</td>
                         <td>£45,000</td>
-                        <td>RPI+3% interest</td>
+                        <td>RPI+3% − repayments</td>
                         <td>Typical Plan 2 debt after 3-year English degree</td>
                     </tr>
                     <tr>
@@ -674,13 +674,13 @@
                     <tr>
                         <td>Rail spending</td>
                         <td>£2,000</td>
-                        <td>RPI</td>
+                        <td>Fixed (RPI for impact)</td>
                         <td>Annual commuting costs for urban rail users</td>
                     </tr>
                     <tr>
                         <td>Petrol spending</td>
                         <td>£500</td>
-                        <td>Fuel duty</td>
+                        <td>Fixed</td>
                         <td>Many graduates don't own cars or drive infrequently</td>
                     </tr>
                     <tr>
