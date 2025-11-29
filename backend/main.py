@@ -599,8 +599,10 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         impact_unearned_tax = -(unearned_tax_increased - unearned_tax)
 
         # Salary sacrifice cap (takes effect April 2029)
+        # Salary sacrifice grows with CPI to maintain real value
+        salary_sacrifice = inputs.salary_sacrifice_per_year * unearned_cpi_factor
         if current_year >= 2029 and not is_retired:
-            impact_salary_sacrifice_cap = -calculate_salary_sacrifice_impact(inputs.salary_sacrifice_per_year, gross_income)
+            impact_salary_sacrifice_cap = -calculate_salary_sacrifice_impact(salary_sacrifice, gross_income)
         else:
             impact_salary_sacrifice_cap = 0
 

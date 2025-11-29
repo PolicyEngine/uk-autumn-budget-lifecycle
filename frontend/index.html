@@ -446,6 +446,43 @@
         .methodology li strong {
             color: #1e293b;
         }
+        .defaults-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin: 16px 0;
+        }
+        .defaults-table th, .defaults-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .defaults-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .defaults-table td {
+            color: #475569;
+        }
+        .defaults-table td:first-child {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        .defaults-table td:nth-child(2) {
+            font-family: monospace;
+            white-space: nowrap;
+        }
+        .defaults-table td:nth-child(3) {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+        .defaults-table tbody tr:hover {
+            background: #f8fafc;
+        }
+        .defaults-table a {
+            color: #2C7A7B;
+        }
     </style>
 </head>
 <body>
@@ -473,7 +510,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Salary</label>
+                    <label title="Starting salary in graduation year. Grows with age-based earnings trajectory.">Salary</label>
                     <div class="slider-container">
                         <input type="range" id="current_salary" value="30000" min="0" max="200000" step="1000">
                         <span class="slider-value" id="current_salary_value">£30,000</span>
@@ -497,7 +534,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Student loan debt</label>
+                    <label title="Initial debt at graduation. Accrues interest (RPI+3%) and gets paid down over time.">Student loan debt</label>
                     <div class="slider-container">
                         <input type="range" id="student_loan_debt" value="45000" min="0" max="100000" step="5000">
                         <span class="slider-value" id="student_loan_debt_value">£45k</span>
@@ -505,15 +542,15 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Salary sacrifice</label>
+                    <label title="Annual pension contribution via salary sacrifice. Grows with CPI. Cap of £2k from April 2029.">Salary sacrifice</label>
                     <div class="slider-container">
-                        <input type="range" id="salary_sacrifice_per_year" value="0" min="0" max="10000" step="100">
-                        <span class="slider-value" id="salary_sacrifice_per_year_value">£0</span>
+                        <input type="range" id="salary_sacrifice_per_year" value="2000" min="0" max="10000" step="100">
+                        <span class="slider-value" id="salary_sacrifice_per_year_value">£2,000</span>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <label>Rail spending</label>
+                    <label title="Annual rail commuting costs. Grows with RPI (rail fare inflation).">Rail spending</label>
                     <div class="slider-container">
                         <input type="range" id="rail_spending_per_year" value="2000" min="0" max="10000" step="100">
                         <span class="slider-value" id="rail_spending_per_year_value">£2,000</span>
@@ -521,7 +558,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Petrol spending</label>
+                    <label title="Annual petrol costs. Fuel duty increases apply to this amount.">Petrol spending</label>
                     <div class="slider-container">
                         <input type="range" id="petrol_spending_per_year" value="500" min="0" max="10000" step="100">
                         <span class="slider-value" id="petrol_spending_per_year_value">£500</span>
@@ -529,23 +566,23 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Dividends</label>
+                    <label title="Annual dividend income. Grows with CPI to maintain real value.">Dividends</label>
                     <div class="slider-container">
-                        <input type="range" id="dividends_per_year" value="0" min="0" max="10000" step="100">
-                        <span class="slider-value" id="dividends_per_year_value">£0</span>
+                        <input type="range" id="dividends_per_year" value="500" min="0" max="10000" step="100">
+                        <span class="slider-value" id="dividends_per_year_value">£500</span>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <label>Savings interest</label>
+                    <label title="Annual savings interest income. Grows with CPI to maintain real value.">Savings interest</label>
                     <div class="slider-container">
-                        <input type="range" id="savings_interest_per_year" value="200" min="0" max="10000" step="100">
-                        <span class="slider-value" id="savings_interest_per_year_value">£200</span>
+                        <input type="range" id="savings_interest_per_year" value="500" min="0" max="10000" step="100">
+                        <span class="slider-value" id="savings_interest_per_year_value">£500</span>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <label>Property income</label>
+                    <label title="Annual rental/property income. Grows with CPI to maintain real value.">Property income</label>
                     <div class="slider-container">
                         <input type="range" id="property_income_per_year" value="0" min="0" max="10000" step="100">
                         <span class="slider-value" id="property_income_per_year_value">£0</span>
@@ -600,16 +637,72 @@
 
             <h3>Default values</h3>
             <p>The default inputs represent a typical 2025 university graduate entering the workforce:</p>
-            <ul>
-                <li><strong>Age 22</strong> — Standard 3-year undergraduate degree completion age.</li>
-                <li><strong>£30,000 salary</strong> — Median UK graduate starting salary for 2024-25 (<a href="https://www.highfliers.co.uk/download/2024/graduate_market/GMReport24.pdf" target="_blank">High Fliers Graduate Market Report 2024</a>).</li>
-                <li><strong>£45,000 student debt</strong> — Typical Plan 2 debt after a 3-year English university degree at current fee and maintenance loan levels.</li>
-                <li><strong>£0 salary sacrifice</strong> — New graduates typically don't contribute to pension salary sacrifice initially.</li>
-                <li><strong>£2,000 rail spending</strong> — Annual commuting costs for urban workers using rail.</li>
-                <li><strong>£500 petrol spending</strong> — Many new graduates don't own cars or drive infrequently.</li>
-                <li><strong>£0 dividends/property income</strong> — New graduates rarely have significant investment or rental income.</li>
-                <li><strong>£200 savings interest</strong> — Interest on a small emergency fund (~£5,000 at 4%).</li>
-            </ul>
+            <table class="defaults-table">
+                <thead>
+                    <tr>
+                        <th>Input</th>
+                        <th>Default</th>
+                        <th>Growth</th>
+                        <th>Rationale</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Age</td>
+                        <td>22</td>
+                        <td>—</td>
+                        <td>Standard 3-year undergraduate degree completion age</td>
+                    </tr>
+                    <tr>
+                        <td>Salary</td>
+                        <td>£30,000</td>
+                        <td>Earnings trajectory</td>
+                        <td>Median UK graduate starting salary (<a href="https://www.highfliers.co.uk/download/2024/graduate_market/GMReport24.pdf" target="_blank">High Fliers 2024</a>)</td>
+                    </tr>
+                    <tr>
+                        <td>Student loan debt</td>
+                        <td>£45,000</td>
+                        <td>RPI+3% interest</td>
+                        <td>Typical Plan 2 debt after 3-year English degree</td>
+                    </tr>
+                    <tr>
+                        <td>Salary sacrifice</td>
+                        <td>£2,000</td>
+                        <td>CPI</td>
+                        <td>Lifetime average; matches NIC-exempt threshold from April 2029</td>
+                    </tr>
+                    <tr>
+                        <td>Rail spending</td>
+                        <td>£2,000</td>
+                        <td>RPI</td>
+                        <td>Annual commuting costs for urban rail users</td>
+                    </tr>
+                    <tr>
+                        <td>Petrol spending</td>
+                        <td>£500</td>
+                        <td>Fuel duty</td>
+                        <td>Many graduates don't own cars or drive infrequently</td>
+                    </tr>
+                    <tr>
+                        <td>Dividends</td>
+                        <td>£500</td>
+                        <td>CPI</td>
+                        <td>Lifetime average in 2025 £; represents gradual portfolio accumulation</td>
+                    </tr>
+                    <tr>
+                        <td>Savings interest</td>
+                        <td>£500</td>
+                        <td>CPI</td>
+                        <td>Lifetime average in 2025 £; ~£12,500 at 4% initially, growing over time</td>
+                    </tr>
+                    <tr>
+                        <td>Property income</td>
+                        <td>£0</td>
+                        <td>CPI</td>
+                        <td>Most people don't receive rental income</td>
+                    </tr>
+                </tbody>
+            </table>
 
             <h3>Assumptions</h3>
             <ul>
