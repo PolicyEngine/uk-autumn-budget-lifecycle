@@ -813,12 +813,18 @@
             return currentData.map(row => {
                 const deflator = getCumulativeInflation(row.year);
                 const adjusted = { ...row };
-                // Deflate all monetary values
+                // Deflate all monetary values for chart display
                 reforms.forEach(r => {
                     adjusted[r.key] = row[r.key] / deflator;
                 });
                 adjusted.gross_income = row.gross_income / deflator;
                 adjusted.baseline_net_income = row.baseline_net_income / deflator;
+                adjusted.income_tax = row.income_tax / deflator;
+                adjusted.national_insurance = row.national_insurance / deflator;
+                adjusted.student_loan_payment = row.student_loan_payment / deflator;
+                adjusted.student_loan_debt_remaining = row.student_loan_debt_remaining / deflator;
+                // Note: threshold parameters (baseline_pa, reform_pa, etc.) are NOT deflated here
+                // Modal calculations use raw nominal values and apply toRealTerms() for display
                 return adjusted;
             });
         }
@@ -1420,10 +1426,11 @@
         }
 
         function renderTaxDetailChart(selectedAge) {
-            const data = getDisplayData();
-            if (!data.length) return;
+            // Use currentData (nominal values) for consistent tax calculations
+            // Then apply toRealTerms() only for display purposes
+            if (!currentData.length) return;
 
-            const row = data.find(d => d.age === selectedAge);
+            const row = currentData.find(d => d.age === selectedAge);
             const deflator = getCumulativeInflation(row?.year || 2026);
             if (!row || row.gross_income === 0) {
                 document.getElementById('tax-detail-chart').innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No income at this age (retired)</div>';
@@ -2470,10 +2477,11 @@
 
         // Container-based render functions for modal
         function renderTaxDetailChartToContainer(selectedAge, container) {
-            const data = getDisplayData();
-            if (!data.length) return;
+            // Use currentData (nominal values) for consistent tax calculations
+            // Then apply toRealTerms() only for display purposes
+            if (!currentData.length) return;
 
-            const row = data.find(d => d.age === selectedAge);
+            const row = currentData.find(d => d.age === selectedAge);
             if (!row || row.gross_income === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No income at this age (retired)</div>';
                 return;
