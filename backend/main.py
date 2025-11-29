@@ -64,6 +64,12 @@ DIVIDEND_ALLOWANCE = 500
 SAVINGS_ALLOWANCE_BASIC = 1_000
 SAVINGS_ALLOWANCE_HIGHER = 500
 
+# State pension (2024-25 full new state pension)
+STATE_PENSION_WEEKLY_2024 = 221.20
+STATE_PENSION_ANNUAL_2024 = STATE_PENSION_WEEKLY_2024 * 52  # ~£11,502
+STATE_PENSION_AGE = 67
+TRIPLE_LOCK_MINIMUM = 0.025  # 2.5% floor
+
 # Earnings growth plateaus at peak (no decline approaching retirement)
 EARNINGS_GROWTH_BY_AGE = {
     22: 1.00, 23: 1.05, 24: 1.10, 25: 1.16, 26: 1.22, 27: 1.28, 28: 1.35,
@@ -105,6 +111,28 @@ def get_cumulative_inflation(base_year: int, target_year: int, use_rpi: bool = F
     return factor
 
 
+# Average earnings growth (used for triple lock)
+# Source: OBR forecasts - using ~4% nominal as simplified assumption
+EARNINGS_GROWTH_RATE = 0.04
+
+
+def get_state_pension(year: int) -> float:
+    """Calculate state pension for a given year using triple lock uprating.
+
+    Triple lock: pension rises by max of CPI, average earnings growth, or 2.5%.
+    """
+    if year <= 2024:
+        return STATE_PENSION_ANNUAL_2024
+
+    pension = STATE_PENSION_ANNUAL_2024
+    for y in range(2024, year):
+        cpi = get_cpi(y)
+        # Triple lock: max of CPI, earnings growth, or 2.5%
+        uprating = max(cpi, EARNINGS_GROWTH_RATE, TRIPLE_LOCK_MINIMUM)
+        pension *= (1 + uprating)
+    return pension
+
+
 
 
 def calculate_income_tax(gross_income: float) -> float:
@@ -142,14 +170,28 @@ def calculate_ni(gross_income: float) -> float:
 
 
 def calculate_student_loan(
-    gross_income: float, remaining_debt: float, year: int, years_since_graduation: int
+    gross_income: float, remaining_debt: float, year: int, years_since_graduation: int,
+    threshold: float = None
 ) -> tuple[float, float]:
+    """Calculate student loan repayment and new debt balance.
+
+    Args:
+        gross_income: Annual gross income
+        remaining_debt: Debt balance at start of year
+        year: Calendar year
+        years_since_graduation: Years since graduation (for 30-year forgiveness)
+        threshold: Repayment threshold (defaults to STUDENT_LOAN_THRESHOLD_PLAN2)
+
+    Returns:
+        Tuple of (repayment amount, new debt balance after interest)
+    """
     # Debt forgiven after 30 years
     if years_since_graduation >= STUDENT_LOAN_FORGIVENESS_YEARS:
         return 0, 0
     if remaining_debt <= 0:
         return 0, 0
-    threshold = STUDENT_LOAN_THRESHOLD_PLAN2
+    if threshold is None:
+        threshold = STUDENT_LOAN_THRESHOLD_PLAN2
     rpi = get_rpi(year)
     interest_rate = min(rpi + 0.03, 0.071)
     if gross_income <= threshold:
@@ -165,12 +207,13 @@ def calculate_student_loan(
 def calculate_fuel_duty_impact(petrol_spending: float, fiscal_year: int) -> float:
     """Calculate impact of fuel duty freeze/reform vs unfrozen baseline.
 
+    Policy takes effect from 2026 (FY 2026-27).
     FY 2026-27: Phased increase (weighted average ~54.37p)
     FY 2027-28 onwards: Full rate of 57.95p
     """
-    if fiscal_year <= 2025:
-        # Current frozen rate
-        reform_rate = FUEL_DUTY_CURRENT
+    if fiscal_year < 2026:
+        # No impact before policy takes effect
+        return 0
     elif fiscal_year == 2026:
         # FY 2026-27: weighted average of phased increases
         reform_rate = FUEL_DUTY_FY_2026_27
@@ -205,7 +248,25 @@ def calculate_salary_sacrifice_impact(salary_sacrifice: float, gross_income: flo
 
 def calculate_unearned_income_tax(dividends: float, savings_interest: float, property_income: float,
                                    gross_income: float, increased_tax: bool = False) -> float:
-    if gross_income > BASIC_RATE_THRESHOLD:
+    """Calculate tax on unearned income (dividends, savings, property).
+
+    Personal allowance is applied first to earned income, then any remaining
+    allowance reduces unearned income. Order of taxation: savings interest,
+    then dividends, then property income.
+    """
+    # Calculate remaining personal allowance after earned income
+    remaining_pa = max(0, PERSONAL_ALLOWANCE - gross_income)
+
+    # Total unearned income
+    total_unearned = dividends + savings_interest + property_income
+
+    # If personal allowance covers all unearned income, no tax
+    if remaining_pa >= total_unearned:
+        return 0.0
+
+    # Determine tax rates based on total income (earned + unearned)
+    total_income = gross_income + total_unearned
+    if total_income > BASIC_RATE_THRESHOLD:
         savings_allowance = SAVINGS_ALLOWANCE_HIGHER
         dividend_rate = 0.3375
         savings_rate = HIGHER_RATE
@@ -213,153 +274,218 @@ def calculate_unearned_income_tax(dividends: float, savings_interest: float, pro
         savings_allowance = SAVINGS_ALLOWANCE_BASIC
         dividend_rate = 0.0875
         savings_rate = BASIC_RATE
-    taxable_dividends = max(0, dividends - DIVIDEND_ALLOWANCE)
-    taxable_savings = max(0, savings_interest - savings_allowance)
-    tax = taxable_dividends * dividend_rate + taxable_savings * savings_rate + property_income * savings_rate
+
+    # Apply remaining PA to unearned income (savings first, then dividends, then property)
+    # Reduce each income type by the PA used
+    pa_used = 0
+
+    # Savings interest (taxed first, benefits from starting rate band)
+    savings_after_pa = max(0, savings_interest - max(0, remaining_pa - pa_used))
+    pa_used += min(savings_interest, max(0, remaining_pa - pa_used))
+    taxable_savings = max(0, savings_after_pa - savings_allowance)
+
+    # Dividends (taxed next)
+    dividends_after_pa = max(0, dividends - max(0, remaining_pa - pa_used))
+    pa_used += min(dividends, max(0, remaining_pa - pa_used))
+    taxable_dividends = max(0, dividends_after_pa - DIVIDEND_ALLOWANCE)
+
+    # Property income (taxed last)
+    property_after_pa = max(0, property_income - max(0, remaining_pa - pa_used))
+    taxable_property = property_after_pa
+
+    tax = taxable_dividends * dividend_rate + taxable_savings * savings_rate + taxable_property * savings_rate
     if increased_tax:
         tax *= 1.05
     return tax
 
 
+def calculate_scenario(
+    gross_income: float,
+    current_year: int,
+    years_since_graduation: int,
+    remaining_debt: float,
+    freeze_end_year: int,
+) -> dict:
+    """Calculate all tax/benefit values for a single policy scenario.
+
+    Args:
+        gross_income: Annual gross income
+        current_year: Calendar year
+        years_since_graduation: Years since graduation
+        remaining_debt: Student loan debt at start of year
+        freeze_end_year: Year when threshold freeze ends (2028 for baseline, 2031 for reform)
+
+    Returns:
+        Dict with all calculated values for this scenario
+    """
+    # Calculate income tax thresholds
+    if current_year < 2028:
+        # Before any freeze would have ended
+        pa = PERSONAL_ALLOWANCE
+        basic_threshold = BASIC_RATE_THRESHOLD
+        additional_threshold = HIGHER_RATE_THRESHOLD
+    elif current_year < freeze_end_year:
+        # Still frozen under this scenario
+        pa = PERSONAL_ALLOWANCE
+        basic_threshold = BASIC_RATE_THRESHOLD
+        additional_threshold = HIGHER_RATE_THRESHOLD
+    else:
+        # Freeze has ended, CPI uprating applies
+        cpi_factor = get_cumulative_inflation(freeze_end_year, current_year, use_rpi=False)
+        pa = PERSONAL_ALLOWANCE * cpi_factor
+        basic_threshold = BASIC_RATE_THRESHOLD * cpi_factor
+        additional_threshold = HIGHER_RATE_THRESHOLD * cpi_factor
+
+    # PA taper threshold is NEVER uprated (fixed at £100k since 2009)
+    taper_threshold = PA_TAPER_THRESHOLD
+
+    # Calculate effective PA after taper
+    if gross_income > taper_threshold:
+        effective_pa = max(0, pa - (gross_income - taper_threshold) * PA_TAPER_RATE)
+    else:
+        effective_pa = pa
+
+    # Calculate income tax
+    taxable = max(0, gross_income - effective_pa)
+    income_tax = 0
+    if taxable > 0:
+        basic_band = min(taxable, basic_threshold - pa)
+        income_tax += basic_band * BASIC_RATE
+        taxable -= basic_band
+    if taxable > 0:
+        higher_band = min(taxable, additional_threshold - basic_threshold)
+        income_tax += higher_band * HIGHER_RATE
+        taxable -= higher_band
+    if taxable > 0:
+        income_tax += taxable * ADDITIONAL_RATE
+
+    # Student loan threshold: frozen until 2027, then RPI uprating resumes
+    # For baseline: freeze ends 2027 (RPI uprating from then)
+    # For reform: additional freeze to 2030, then RPI uprating
+    sl_freeze_end = 2027 if freeze_end_year == 2028 else 2030
+    if current_year < 2027:
+        sl_threshold = STUDENT_LOAN_THRESHOLD_PLAN2
+    elif current_year < sl_freeze_end:
+        # Still frozen
+        sl_threshold = STUDENT_LOAN_THRESHOLD_PLAN2
+    else:
+        sl_threshold = STUDENT_LOAN_THRESHOLD_PLAN2 * get_cumulative_inflation(sl_freeze_end, current_year, use_rpi=True)
+
+    # Calculate student loan payment and new debt
+    sl_payment, new_debt = calculate_student_loan(
+        gross_income, remaining_debt, current_year, years_since_graduation, sl_threshold
+    )
+
+    return {
+        "pa": pa,
+        "basic_threshold": basic_threshold,
+        "taper_threshold": taper_threshold,
+        "additional_threshold": additional_threshold,
+        "effective_pa": effective_pa,
+        "income_tax": income_tax,
+        "sl_threshold": sl_threshold,
+        "sl_payment": sl_payment,
+        "sl_debt": new_debt,
+    }
+
+
 def run_model(inputs: ModelInputs) -> list[dict]:
     # Starting salary is what they earned at age 22 in their graduation year
-    # We use this to anchor their earnings profile
     starting_salary = inputs.starting_salary
     graduation_age = 22
     graduation_year = inputs.graduation_year
 
-    # Simulation runs from 2024 onwards
-    base_year = 2024
+    # Simulation runs from 2026 onwards (when Autumn Budget policies take effect)
+    base_year = 2026
     end_year = 2100
     results = []
-    student_loan_debt = inputs.student_loan_debt
+
+    # Track two separate debt paths: baseline (Pre-AB) and reform (Post-AB)
+    baseline_debt = inputs.student_loan_debt
+    reform_debt = inputs.student_loan_debt
 
     for current_year in range(base_year, end_year + 1):
-        # Calculate age based on graduation year
         years_since_graduation = current_year - graduation_year
         age = graduation_age + years_since_graduation
 
-        # Skip if not yet graduated or too old
         if age < graduation_age or age > 100:
             continue
 
         is_retired = age > inputs.retirement_age
 
-        # Earnings are zero after retirement, plateau at peak before
+        # Calculate gross income (employment income + state pension if retired)
         if is_retired:
-            gross_income = 0
+            employment_income = 0
+            state_pension = get_state_pension(current_year)
+            gross_income = state_pension
         else:
             base_multiplier = EARNINGS_GROWTH_BY_AGE.get(age, PEAK_EARNINGS_MULTIPLIER)
             additional_growth = (1 + inputs.additional_income_growth_rate) ** years_since_graduation
-            gross_income = starting_salary * base_multiplier * additional_growth
+            employment_income = starting_salary * base_multiplier * additional_growth
+            state_pension = 0
+            gross_income = employment_income
 
-        # Simplified: no children modelling
-        num_children = 0
+        # Calculate both scenarios using the unified function
+        baseline = calculate_scenario(gross_income, current_year, years_since_graduation, baseline_debt, freeze_end_year=2028)
+        reform = calculate_scenario(gross_income, current_year, years_since_graduation, reform_debt, freeze_end_year=2031)
 
-        income_tax = calculate_income_tax(gross_income)
+        # Update debt trackers
+        baseline_debt = baseline["sl_debt"]
+        reform_debt = reform["sl_debt"]
+
+        # Standard calculations (same for both scenarios)
         ni = calculate_ni(gross_income)
-        student_loan_payment, student_loan_debt = calculate_student_loan(
-            gross_income, student_loan_debt, current_year, years_since_graduation
-        )
+
+        # Uprate unearned income with CPI from base year (maintains real value)
+        unearned_cpi_factor = get_cumulative_inflation(base_year, current_year, use_rpi=False)
+        dividends = inputs.dividends_per_year * unearned_cpi_factor
+        savings_interest = inputs.savings_interest_per_year * unearned_cpi_factor
+        property_income = inputs.property_income_per_year * unearned_cpi_factor
+
         unearned_tax = calculate_unearned_income_tax(
-            inputs.dividends_per_year, inputs.savings_interest_per_year, inputs.property_income_per_year, gross_income
+            dividends, savings_interest, property_income, gross_income
         )
 
-        baseline_net = (gross_income - income_tax - ni - student_loan_payment - unearned_tax
+        # Net income uses reform values (what actually happens post-AB)
+        baseline_net = (gross_income - reform["income_tax"] - ni - reform["sl_payment"] - unearned_tax
                        - inputs.rail_spending_per_year - inputs.petrol_spending_per_year)
 
-        # Rail fare freeze (2026 only)
+        # Calculate policy impacts
         impact_rail_freeze = calculate_rail_impact(inputs.rail_spending_per_year, current_year)
+        impact_fuel_freeze = calculate_fuel_duty_impact(inputs.petrol_spending_per_year, current_year)
 
-        # Fuel duty reform
-        # Note: current_year is calendar year, fiscal year starts April so FY = calendar year for most of year
-        fiscal_year = current_year
-        impact_fuel_freeze = calculate_fuel_duty_impact(inputs.petrol_spending_per_year, fiscal_year)
+        # Threshold freeze impact: difference in income tax between scenarios
+        impact_threshold_freeze = round(baseline["income_tax"] - reform["income_tax"]) if current_year >= 2028 else 0
 
-        # Threshold freeze extension
-        if current_year < 2028:
-            impact_threshold_freeze = 0
+        # Student loan impact: difference in repayments
+        if current_year >= 2027 and (baseline_debt > 0 or reform_debt > 0):
+            impact_sl_freeze = baseline["sl_payment"] - reform["sl_payment"]
         else:
-            baseline_cpi = get_cumulative_inflation(2028, current_year, use_rpi=False)
-            baseline_pa = PERSONAL_ALLOWANCE * baseline_cpi
-            baseline_basic = BASIC_RATE_THRESHOLD * baseline_cpi
-            baseline_taper = PA_TAPER_THRESHOLD * baseline_cpi
+            impact_sl_freeze = 0
 
-            if current_year < 2030:
-                reform_pa = PERSONAL_ALLOWANCE
-                reform_basic = BASIC_RATE_THRESHOLD
-                reform_taper = PA_TAPER_THRESHOLD
-            else:
-                reform_cpi = get_cumulative_inflation(2030, current_year, use_rpi=False)
-                reform_pa = PERSONAL_ALLOWANCE * reform_cpi
-                reform_basic = BASIC_RATE_THRESHOLD * reform_cpi
-                reform_taper = PA_TAPER_THRESHOLD * reform_cpi
-
-            if gross_income > baseline_taper:
-                baseline_pa_adj = max(0, baseline_pa - (gross_income - baseline_taper) * PA_TAPER_RATE)
-            else:
-                baseline_pa_adj = baseline_pa
-            taxable_baseline = max(0, gross_income - baseline_pa_adj)
-            tax_baseline = 0
-            if taxable_baseline > 0:
-                basic_band = min(taxable_baseline, baseline_basic - baseline_pa)
-                tax_baseline += basic_band * BASIC_RATE
-                taxable_baseline -= basic_band
-            if taxable_baseline > 0:
-                tax_baseline += taxable_baseline * HIGHER_RATE
-
-            if gross_income > reform_taper:
-                reform_pa_adj = max(0, reform_pa - (gross_income - reform_taper) * PA_TAPER_RATE)
-            else:
-                reform_pa_adj = reform_pa
-            taxable_reform = max(0, gross_income - reform_pa_adj)
-            tax_reform = 0
-            if taxable_reform > 0:
-                basic_band = min(taxable_reform, reform_basic - reform_pa)
-                tax_reform += basic_band * BASIC_RATE
-                taxable_reform -= basic_band
-            if taxable_reform > 0:
-                tax_reform += taxable_reform * HIGHER_RATE
-
-            impact_threshold_freeze = tax_baseline - tax_reform
-
-        # Unearned income tax
+        # Unearned income tax increase (using uprated values)
         unearned_tax_increased = calculate_unearned_income_tax(
-            inputs.dividends_per_year, inputs.savings_interest_per_year,
-            inputs.property_income_per_year, gross_income, increased_tax=True
+            dividends, savings_interest, property_income, gross_income, increased_tax=True
         )
         impact_unearned_tax = -(unearned_tax_increased - unearned_tax)
 
-        # Salary sacrifice cap (only applies when working - no salary sacrifice in retirement)
-        if is_retired:
-            impact_salary_sacrifice_cap = 0
-        else:
+        # Salary sacrifice cap (takes effect April 2029)
+        if current_year >= 2029 and not is_retired:
             impact_salary_sacrifice_cap = -calculate_salary_sacrifice_impact(inputs.salary_sacrifice_per_year, gross_income)
-
-        # Student loan threshold freeze
-        if current_year < 2027:
-            impact_sl_freeze = 0
-        elif student_loan_debt > 0:
-            baseline_threshold = STUDENT_LOAN_THRESHOLD_PLAN2 * get_cumulative_inflation(2027, current_year, use_rpi=True)
-            if current_year < 2030:
-                reform_threshold = STUDENT_LOAN_THRESHOLD_PLAN2
-            else:
-                reform_threshold = STUDENT_LOAN_THRESHOLD_PLAN2 * get_cumulative_inflation(2030, current_year, use_rpi=True)
-            repayment_baseline = max(0, (gross_income - baseline_threshold) * STUDENT_LOAN_RATE) if gross_income > baseline_threshold else 0
-            repayment_reform = max(0, (gross_income - reform_threshold) * STUDENT_LOAN_RATE) if gross_income > reform_threshold else 0
-            impact_sl_freeze = repayment_baseline - repayment_reform
         else:
-            impact_sl_freeze = 0
+            impact_salary_sacrifice_cap = 0
 
         results.append({
             "age": age,
             "year": current_year,
             "gross_income": round(gross_income),
-            "income_tax": round(income_tax),
+            "employment_income": round(employment_income),
+            "state_pension": round(state_pension),
+            "income_tax": round(reform["income_tax"]),
             "national_insurance": round(ni),
-            "student_loan_payment": round(student_loan_payment),
-            "student_loan_debt_remaining": round(student_loan_debt),
-            "num_children": num_children,
+            "student_loan_payment": round(reform["sl_payment"]),
+            "student_loan_debt_remaining": round(reform_debt),
+            "num_children": 0,
             "baseline_net_income": round(baseline_net),
             "impact_rail_fare_freeze": round(impact_rail_freeze),
             "impact_fuel_duty_freeze": round(impact_fuel_freeze),
@@ -367,6 +493,23 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "impact_unearned_income_tax": round(impact_unearned_tax),
             "impact_salary_sacrifice_cap": round(impact_salary_sacrifice_cap),
             "impact_sl_threshold_freeze": round(impact_sl_freeze),
+            # Baseline scenario thresholds
+            "baseline_pa": round(baseline["pa"]),
+            "baseline_basic_threshold": round(baseline["basic_threshold"]),
+            "baseline_taper_threshold": round(baseline["taper_threshold"]),
+            "baseline_additional_threshold": round(baseline["additional_threshold"]),
+            # Reform scenario thresholds
+            "reform_pa": round(reform["pa"]),
+            "reform_basic_threshold": round(reform["basic_threshold"]),
+            "reform_taper_threshold": round(reform["taper_threshold"]),
+            "reform_additional_threshold": round(reform["additional_threshold"]),
+            # Student loan details for both scenarios
+            "baseline_sl_debt": round(baseline["sl_debt"]),
+            "reform_sl_debt": round(reform_debt),
+            "baseline_sl_payment": round(baseline["sl_payment"]),
+            "reform_sl_payment": round(reform["sl_payment"]),
+            "baseline_sl_threshold": round(baseline["sl_threshold"]),
+            "reform_sl_threshold": round(reform["sl_threshold"]),
         })
 
     return results
