@@ -403,8 +403,15 @@ def run_model(inputs: ModelInputs) -> list[dict]:
 
         # Standard calculations (same for both scenarios)
         ni = calculate_ni(gross_income)
+
+        # Uprate unearned income with CPI from base year (maintains real value)
+        unearned_cpi_factor = get_cumulative_inflation(base_year, current_year, use_rpi=False)
+        dividends = inputs.dividends_per_year * unearned_cpi_factor
+        savings_interest = inputs.savings_interest_per_year * unearned_cpi_factor
+        property_income = inputs.property_income_per_year * unearned_cpi_factor
+
         unearned_tax = calculate_unearned_income_tax(
-            inputs.dividends_per_year, inputs.savings_interest_per_year, inputs.property_income_per_year, gross_income
+            dividends, savings_interest, property_income, gross_income
         )
 
         # Net income uses reform values (what actually happens post-AB)
@@ -424,10 +431,9 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         else:
             impact_sl_freeze = 0
 
-        # Unearned income tax increase
+        # Unearned income tax increase (using uprated values)
         unearned_tax_increased = calculate_unearned_income_tax(
-            inputs.dividends_per_year, inputs.savings_interest_per_year,
-            inputs.property_income_per_year, gross_income, increased_tax=True
+            dividends, savings_interest, property_income, gross_income, increased_tax=True
         )
         impact_unearned_tax = -(unearned_tax_increased - unearned_tax)
 
