@@ -325,6 +325,7 @@
         }
         .modal-close:hover { color: #333; }
         .modal-body { padding: 24px; }
+        .modal-panel { min-height: 450px; max-height: 450px; overflow-y: auto; }
         .calc-section { margin-bottom: 24px; }
         .calc-section:last-child { margin-bottom: 0; }
         .calc-title { font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
@@ -581,6 +582,16 @@
             { key: 'impact_salary_sacrifice_cap', label: 'Salary sacrifice cap', color: '#14b8a6' },
             { key: 'impact_sl_threshold_freeze', label: 'SL threshold freeze', color: '#f97316' }
         ];
+
+        // Map reform keys to tab names for click-to-tab functionality
+        const reformKeyToTab = {
+            'impact_rail_fare_freeze': 'rail-fare',
+            'impact_fuel_duty_freeze': 'fuel-duty',
+            'impact_threshold_freeze': 'tax',
+            'impact_unearned_income_tax': 'unearned-income',
+            'impact_salary_sacrifice_cap': 'salary-sacrifice',
+            'impact_sl_threshold_freeze': 'student-loan'
+        };
 
         let currentData = [];
         let previousData = [];
@@ -1115,6 +1126,7 @@
                         <span>Net policy impact</span>
                         <span class="tooltip-value ${total >= 0 ? 'positive' : 'negative'}">${formatSignedCurrency(total)}</span>
                     </div>`;
+                    html += `<div style="margin-top: 8px; font-size: 0.75rem; color: #94a3b8; text-align: center;">Click for details</div>`;
                     tooltip.html(html);
                 })
                 .on('mousemove', function(event) {
@@ -1124,7 +1136,22 @@
                     tooltip.style('opacity', 0);
                 })
                 .on('click', function(event, d) {
-                    showModal(d.age);
+                    // Determine which bar segment was clicked based on mouse Y position
+                    const mouseY = d3.pointer(event, this)[1];
+                    let clickedTab = 'summary';
+
+                    // Find which bar segment was clicked
+                    for (const bar of d.bars) {
+                        if (bar.value === 0) continue;
+                        const barTop = y(Math.max(bar.y0, bar.y1));
+                        const barBottom = y(Math.min(bar.y0, bar.y1));
+                        if (mouseY >= barTop && mouseY <= barBottom) {
+                            clickedTab = reformKeyToTab[bar.key] || 'summary';
+                            break;
+                        }
+                    }
+
+                    showModal(d.age, clickedTab);
                 });
         }
 
@@ -1152,6 +1179,11 @@
             border-bottom: 1px solid #f1f5f9;
             color: #64748b;
         `;
+
+        // Global RPI function for use in multiple render functions
+        const RPI_FORECASTS = {2024: 0.0331, 2025: 0.0416, 2026: 0.0308, 2027: 0.0300, 2028: 0.0283, 2029: 0.0283};
+        const RPI_LONG_TERM = 0.0239;
+        function getRPI(y) { return RPI_FORECASTS[y] || RPI_LONG_TERM; }
 
         function formatDiff(diff) {
             const sign = diff >= 0 ? '+' : '-';
@@ -1293,12 +1325,13 @@
         }
 
         // Student loan detail chart
-        function renderStudentLoanDetail(selectedAge) {
+        function renderStudentLoanDetail(selectedAge, targetContainer = null) {
             const data = getDisplayData();
             if (!data.length) return;
 
             const row = data.find(d => d.age === selectedAge);
-            const container = document.getElementById('student-loan-detail');
+            const container = targetContainer || document.getElementById('student-loan-detail');
+            if (!container) return;
             const deflator = getCumulativeInflation(row?.year || 2026);
 
             if (!row) {
@@ -1421,12 +1454,13 @@
         }
 
         // Salary sacrifice detail chart
-        function renderSalarySacrificeDetail(selectedAge) {
+        function renderSalarySacrificeDetail(selectedAge, targetContainer = null) {
             const data = getDisplayData();
             if (!data.length) return;
 
             const row = data.find(d => d.age === selectedAge);
-            const container = document.getElementById('salary-sacrifice-detail');
+            const container = targetContainer || document.getElementById('salary-sacrifice-detail');
+            if (!container) return;
             const deflator = getCumulativeInflation(row?.year || 2026);
 
             if (!row || row.gross_income === 0) {
@@ -1595,12 +1629,13 @@
         }
 
         // Rail fare detail chart
-        function renderRailFareDetail(selectedAge) {
+        function renderRailFareDetail(selectedAge, targetContainer = null) {
             const data = getDisplayData();
             if (!data.length) return;
 
             const row = data.find(d => d.age === selectedAge);
-            const container = document.getElementById('rail-fare-detail');
+            const container = targetContainer || document.getElementById('rail-fare-detail');
+            if (!container) return;
 
             if (!row || row.gross_income === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No income at this age (retired)</div>';
@@ -1722,12 +1757,13 @@
         }
 
         // Fuel duty detail chart
-        function renderFuelDutyDetail(selectedAge) {
+        function renderFuelDutyDetail(selectedAge, targetContainer = null) {
             const data = getDisplayData();
             if (!data.length) return;
 
             const row = data.find(d => d.age === selectedAge);
-            const container = document.getElementById('fuel-duty-detail');
+            const container = targetContainer || document.getElementById('fuel-duty-detail');
+            if (!container) return;
             const deflator = getCumulativeInflation(row?.year || 2026);
 
             if (!row || row.gross_income === 0) {
@@ -2033,9 +2069,14 @@
 
         let modalActiveTab = 'summary';
 
-        function showModal(age) {
+        function showModal(age, initialTab = null) {
             const row = currentData.find(d => d.age === age);
             if (!row) return;
+
+            // Set the active tab based on initialTab parameter
+            if (initialTab) {
+                modalActiveTab = initialTab;
+            }
 
             const year = row.year;
             const gross = row.gross_income;
@@ -2277,415 +2318,19 @@
         }
 
         function renderStudentLoanDetailToContainer(selectedAge, container) {
-            const data = getDisplayData();
-            if (!data.length) return;
-
-            const row = data.find(d => d.age === selectedAge);
-            if (!row) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No data available</div>';
-                return;
-            }
-
-            const year = row.year;
-            const grossIncome = row.gross_income;
-            const hasLoan = parseFloat(document.getElementById('student_debt').value) > 0;
-
-            if (!hasLoan) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No student loan - set initial debt above to see impact</div>';
-                return;
-            }
-
-            if (year < 2027) {
-                container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px;">
-                    <div style="font-size: 1.1rem; margin-bottom: 8px;">Policy not yet active</div>
-                    <div style="font-size: 0.85rem;">The student loan threshold freeze takes effect from 2027. In ${year}, both scenarios are identical.</div>
-                </div>`;
-                return;
-            }
-
-            const baselineThreshold = row.baseline_sl_threshold;
-            const reformThreshold = row.reform_sl_threshold;
-            const SL_RATE = 0.09;
-
-            const baselinePayment = Math.max(0, (grossIncome - baselineThreshold) * SL_RATE);
-            const reformPayment = Math.max(0, (grossIncome - reformThreshold) * SL_RATE);
-
-            const termsSuffix = getTermsSuffix();
-            const allRows = [
-                { section: 'Student loan parameters' },
-                { label: 'Repayment threshold', preAB: baselineThreshold, postAB: reformThreshold },
-                { label: 'Income above threshold', preAB: Math.max(0, grossIncome - baselineThreshold), postAB: Math.max(0, grossIncome - reformThreshold) },
-                { section: 'Repayment calculation (9% of income above threshold)' },
-                { label: 'Annual repayment', preAB: baselinePayment, postAB: reformPayment, highlight: true },
-            ];
-
-            let tableHtml = `
-                <table style="${tableStyle}">
-                    <thead>
-                        <tr>
-                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
-                            <th style="${thStyle} width: 16.67%;">Pre-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Post-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Difference</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            allRows.forEach(r => {
-                if (r.section) {
-                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
-                } else {
-                    const preABReal = toRealTerms(r.preAB, year);
-                    const postABReal = toRealTerms(r.postAB, year);
-                    const diff = postABReal - preABReal;
-                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                    tableHtml += `
-                        <tr style="${rowStyle}">
-                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                            <td style="${tdStyle}">£${d3.format(',.0f')(preABReal)}</td>
-                            <td style="${tdStyle}">£${d3.format(',.0f')(postABReal)}</td>
-                            <td style="${tdStyle}">${formatDiff(diff)}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            tableHtml += `</tbody></table>`;
-
-            container.innerHTML = `
-                <div style="font-size: 0.95rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Student loan repayment (${year})</div>
-                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">Plan 2 threshold freeze from 2027-2030</div>
-                        </div>
-                    </div>
-                    ${tableHtml}
-                    <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> Pre-AB, the Plan 2 threshold would rise with RPI. Post-AB, it's frozen at £27,295 from 2027-2030. You pay 9% of income above the threshold.
-                    </div>
-                </div>
-            `;
+            renderStudentLoanDetail(selectedAge, container);
         }
 
         function renderSalarySacrificeDetailToContainer(selectedAge, container) {
-            const data = getDisplayData();
-            if (!data.length) return;
-
-            const row = data.find(d => d.age === selectedAge);
-            if (!row) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No data available</div>';
-                return;
-            }
-
-            const year = row.year;
-            const grossIncome = row.gross_income;
-            const ssRate = parseFloat(document.getElementById('salary_sacrifice_rate').value) / 100;
-            const ssContribution = grossIncome * ssRate;
-            const SS_CAP = 2000;
-            const EMPLOYEE_NI_RATE = 0.08;
-            const EMPLOYER_NI_RATE = 0.15;
-
-            if (ssRate === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No salary sacrifice - set rate above to see impact</div>';
-                return;
-            }
-
-            if (year < 2029) {
-                container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px;">
-                    <div style="font-size: 1.1rem; margin-bottom: 8px;">Policy not yet active</div>
-                    <div style="font-size: 0.85rem;">The salary sacrifice cap takes effect from April 2029. In ${year}, both scenarios are identical.</div>
-                </div>`;
-                return;
-            }
-
-            const excessContribution = Math.max(0, ssContribution - SS_CAP);
-            const employeeNIOnExcess = excessContribution * EMPLOYEE_NI_RATE;
-            const employerNIOnExcess = excessContribution * EMPLOYER_NI_RATE;
-
-            const termsSuffix = getTermsSuffix();
-            const allRows = [
-                { section: 'Salary sacrifice details' },
-                { label: 'Gross salary', preAB: grossIncome, postAB: grossIncome },
-                { label: `Total SS contribution (${(ssRate * 100).toFixed(1)}%)`, preAB: ssContribution, postAB: ssContribution },
-                { label: 'SS cap (from 2029)', preAB: null, postAB: SS_CAP, showPreAB: false },
-                { label: 'Excess over cap', preAB: 0, postAB: excessContribution },
-                { section: 'Additional NI charges on excess' },
-                { label: 'Employee NI (8% of excess)', preAB: 0, postAB: employeeNIOnExcess },
-                { label: 'Employer NI (15% of excess)', preAB: 0, postAB: employerNIOnExcess },
-                { separator: true },
-                { label: 'Total additional cost', preAB: 0, postAB: employeeNIOnExcess + employerNIOnExcess, highlight: true },
-            ];
-
-            let tableHtml = `
-                <table style="${tableStyle}">
-                    <thead>
-                        <tr>
-                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
-                            <th style="${thStyle} width: 16.67%;">Pre-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Post-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Difference</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            allRows.forEach(r => {
-                if (r.section) {
-                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
-                } else if (r.separator) {
-                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                } else {
-                    const preABReal = r.preAB !== null ? toRealTerms(r.preAB, year) : null;
-                    const postABReal = toRealTerms(r.postAB, year);
-                    const diff = preABReal !== null ? postABReal - preABReal : null;
-                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                    tableHtml += `
-                        <tr style="${rowStyle}">
-                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                            <td style="${tdStyle}">${preABReal !== null ? `£${d3.format(',.0f')(preABReal)}` : '-'}</td>
-                            <td style="${tdStyle}">£${d3.format(',.0f')(postABReal)}</td>
-                            <td style="${tdStyle}">${diff !== null ? formatDiff(diff) : '-'}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            tableHtml += `</tbody></table>`;
-
-            container.innerHTML = `
-                <div style="font-size: 0.95rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Salary sacrifice cap (${year})</div>
-                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">£2,000 annual cap on pension salary sacrifice from April 2029</div>
-                        </div>
-                    </div>
-                    ${tableHtml}
-                    <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> Pre-AB, all salary sacrifice contributions are exempt from employee and employer NI. Post-AB, contributions above £2,000/year are subject to NI on the excess.
-                    </div>
-                </div>
-            `;
+            renderSalarySacrificeDetail(selectedAge, container);
         }
 
         function renderRailFareDetailToContainer(selectedAge, container) {
-            const data = getDisplayData();
-            if (!data.length) return;
-
-            const row = data.find(d => d.age === selectedAge);
-            if (!row) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No data available</div>';
-                return;
-            }
-
-            const year = row.year;
-            const railSpending = parseFloat(document.getElementById('rail_spending').value);
-
-            if (railSpending === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No rail spending - set annual rail spending above to see impact</div>';
-                return;
-            }
-
-            if (year < 2026) {
-                container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 40px;">
-                    <div style="font-size: 1.1rem; margin-bottom: 8px;">Policy not yet active</div>
-                    <div style="font-size: 0.85rem;">The rail fare freeze applies in 2026. In ${year}, both scenarios are identical.</div>
-                </div>`;
-                return;
-            }
-
-            const RAIL_MARKUP = 0.01;
-            const BASE_YEAR = 2024;
-
-            const getFareIndex = (targetYear, freeze2026) => {
-                let index = 1.0;
-                for (let y = BASE_YEAR; y < targetYear; y++) {
-                    if (freeze2026 && y === 2025) continue;
-                    const rpi = getRPI(y);
-                    index *= (1 + rpi + RAIL_MARKUP);
-                }
-                return index;
-            };
-
-            const preABIndex = getFareIndex(year, false);
-            const postABIndex = getFareIndex(year, true);
-            const preABSpending = railSpending * preABIndex;
-            const postABSpending = railSpending * postABIndex;
-            const savings = preABSpending - postABSpending;
-
-            const termsSuffix = getTermsSuffix();
-            const allRows = [
-                { section: 'Rail fare calculation' },
-                { label: 'Base rail spending (2024)', preAB: railSpending, postAB: railSpending },
-                { label: 'Fare index (cumulative RPI + 1%)', preAB: preABIndex.toFixed(4), postAB: postABIndex.toFixed(4), isIndex: true },
-                { label: 'Annual rail spending', preAB: preABSpending, postAB: postABSpending },
-                { separator: true },
-                { label: 'Savings from fare freeze', preAB: 0, postAB: savings, highlight: true, isSavings: true },
-            ];
-
-            let tableHtml = `
-                <table style="${tableStyle}">
-                    <thead>
-                        <tr>
-                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
-                            <th style="${thStyle} width: 16.67%;">Pre-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Post-AB${termsSuffix}</th>
-                            <th style="${thStyle} width: 16.67%;">Difference</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            allRows.forEach(r => {
-                if (r.section) {
-                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
-                } else if (r.separator) {
-                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                } else if (r.isIndex) {
-                    tableHtml += `
-                        <tr>
-                            <td style="${labelStyle}">${r.label}</td>
-                            <td style="${tdStyle}">${r.preAB}</td>
-                            <td style="${tdStyle}">${r.postAB}</td>
-                            <td style="${tdStyle}">-</td>
-                        </tr>
-                    `;
-                } else if (r.isSavings) {
-                    const savingsReal = toRealTerms(savings, year);
-                    tableHtml += `
-                        <tr style="background: #f0fdf4;">
-                            <td style="${labelStyle} font-weight: 600; color: #1e293b;">${r.label}</td>
-                            <td style="${tdStyle}">-</td>
-                            <td style="${tdStyle} color: #16a34a; font-weight: 600;">+£${d3.format(',.0f')(savingsReal)}</td>
-                            <td style="${tdStyle}">-</td>
-                        </tr>
-                    `;
-                } else {
-                    const preABReal = toRealTerms(r.preAB, year);
-                    const postABReal = toRealTerms(r.postAB, year);
-                    const diff = postABReal - preABReal;
-                    const rowStyle = r.highlight ? 'background: #f0fdf4;' : '';
-                    tableHtml += `
-                        <tr style="${rowStyle}">
-                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                            <td style="${tdStyle}">£${d3.format(',.0f')(preABReal)}</td>
-                            <td style="${tdStyle}">£${d3.format(',.0f')(postABReal)}</td>
-                            <td style="${tdStyle}">${formatDiff(diff)}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            tableHtml += `</tbody></table>`;
-
-            container.innerHTML = `
-                <div style="font-size: 0.95rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Rail fare freeze (${year})</div>
-                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">One-year freeze in 2026 creates permanent lower base</div>
-                        </div>
-                    </div>
-                    ${tableHtml}
-                    <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> Rail fares normally rise by RPI + 1% each year. The 2026 freeze means fares stay at 2025 levels for that year, then resume normal increases from a lower base. This creates persistent savings in all future years.
-                    </div>
-                </div>
-            `;
+            renderRailFareDetail(selectedAge, container);
         }
 
         function renderFuelDutyDetailToContainer(selectedAge, container) {
-            const data = getDisplayData();
-            if (!data.length) return;
-
-            const row = data.find(d => d.age === selectedAge);
-            if (!row) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No data available</div>';
-                return;
-            }
-
-            const year = row.year;
-            const annualMileage = parseFloat(document.getElementById('annual_mileage').value);
-            const mpg = parseFloat(document.getElementById('mpg').value);
-
-            if (annualMileage === 0 || mpg === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #64748b; padding: 40px;">No fuel consumption - set mileage and MPG above to see impact</div>';
-                return;
-            }
-
-            const litresPerGallon = 4.54609;
-            const gallonsUsed = annualMileage / mpg;
-            const litresUsed = gallonsUsed * litresPerGallon;
-
-            const termsSuffix = getTermsSuffix();
-
-            let dutyDiff, explanation;
-            if (year <= 2026) {
-                dutyDiff = 0.05;
-                explanation = 'The 5p cut is maintained through August 2026, then phased increases begin.';
-            } else if (year === 2027) {
-                dutyDiff = 0.00;
-                explanation = 'By 2027, duty has returned to the unfrozen baseline of 58p/litre.';
-            } else {
-                dutyDiff = 0;
-                explanation = 'From 2027 onwards, duty follows the same path in both scenarios.';
-            }
-
-            const savings = litresUsed * dutyDiff;
-
-            const allRows = [
-                { section: 'Fuel consumption' },
-                { label: 'Annual mileage', value: `${d3.format(',')(annualMileage)} miles` },
-                { label: 'Fuel efficiency', value: `${mpg} mpg` },
-                { label: 'Annual fuel usage', value: `${d3.format(',.0f')(litresUsed)} litres` },
-                { section: 'Fuel duty impact' },
-                { label: 'Duty difference (pre-AB vs post-AB)', value: `${(dutyDiff * 100).toFixed(1)}p/litre` },
-                { label: 'Annual savings', value: savings > 0 ? `+£${d3.format(',.0f')(toRealTerms(savings, year))}${termsSuffix}` : '£0', highlight: savings > 0 },
-            ];
-
-            let tableHtml = `
-                <table style="${tableStyle}">
-                    <thead>
-                        <tr>
-                            <th style="${thStyle} text-align: left; width: 60%;">Item</th>
-                            <th style="${thStyle} width: 40%;">Value</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            allRows.forEach(r => {
-                if (r.section) {
-                    tableHtml += `<tr><td colspan="2" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
-                } else {
-                    const rowStyle = r.highlight ? 'background: #f0fdf4;' : '';
-                    tableHtml += `
-                        <tr style="${rowStyle}">
-                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                            <td style="${tdStyle} ${r.highlight ? 'color: #16a34a; font-weight: 600;' : ''}">${r.value}</td>
-                        </tr>
-                    `;
-                }
-            });
-
-            tableHtml += `</tbody></table>`;
-
-            container.innerHTML = `
-                <div style="font-size: 0.95rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Fuel duty (${year})</div>
-                            <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">5p cut extended through Aug 2026, then phased increases</div>
-                        </div>
-                    </div>
-                    ${tableHtml}
-                    <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> ${explanation}
-                    </div>
-                </div>
-            `;
+            renderFuelDutyDetail(selectedAge, container);
         }
 
         function renderUnearnedIncomeDetailToContainer(selectedAge, container) {
