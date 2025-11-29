@@ -155,13 +155,11 @@
             position: relative;
         }
         .chart-watermark {
-            position: absolute;
-            bottom: 70px;
-            right: 30px;
-            opacity: 0.15;
-            pointer-events: none;
+            display: flex;
+            align-items: center;
         }
-        .chart-watermark img { height: 24px; }
+        .chart-watermark img { height: 24px; opacity: 0.5; transition: opacity 0.15s; }
+        .chart-watermark:hover img { opacity: 0.8; }
         #chart { width: 100%; height: 400px; }
         .axis text { fill: #64748b; font-size: 11px; }
         .axis path, .axis line { stroke: #e2e8f0; }
@@ -173,10 +171,15 @@
         .download-buttons {
             display: flex;
             gap: 12px;
-            justify-content: center;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 20px;
             padding-top: 16px;
             border-top: 1px solid #e2e8f0;
+        }
+        .download-buttons-inner {
+            display: flex;
+            gap: 12px;
         }
         .download-btn {
             padding: 8px 16px;
@@ -564,15 +567,17 @@
                 <div class="summary" id="summary"></div>
                 <div class="chart-container">
                     <div id="chart"><div class="loading">Loading...</div></div>
-                    <div class="chart-watermark">
-                        <a href="https://policyengine.org" target="_blank">
-                            <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
-                        </a>
-                    </div>
                     <div class="legend" id="legend"></div>
                     <div class="download-buttons">
-                        <button class="download-btn" id="download-svg">Download SVG</button>
-                        <button class="download-btn" id="download-csv">Download CSV</button>
+                        <div class="download-buttons-inner">
+                            <button class="download-btn" id="download-svg">Download SVG</button>
+                            <button class="download-btn" id="download-csv">Download CSV</button>
+                        </div>
+                        <div class="chart-watermark">
+                            <a href="https://policyengine.org" target="_blank">
+                                <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
+                            </a>
+                        </div>
                     </div>
                 </div>
 
