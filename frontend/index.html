@@ -1475,15 +1475,17 @@
             const reformEffectivePA = calcEffectivePA(row.reform_pa, row.reform_taper_threshold);
 
             // Calculate income in each band for each scenario
-            const calcBands = (effectivePA, basicThreshold, additionalThreshold) => {
+            // Note: The basic rate band width is (basicThreshold - nominalPA), NOT (basicThreshold - effectivePA)
+            // This matches how HMRC calculates tax: the band sizes are fixed, only taxable income changes
+            const calcBands = (effectivePA, nominalPA, basicThreshold, additionalThreshold) => {
                 let remaining = income;
 
-                // Tax-free (effective PA)
+                // Tax-free (effective PA after taper)
                 const taxFree = Math.min(remaining, effectivePA);
                 remaining -= taxFree;
 
-                // Basic rate band (20%)
-                const basicBand = Math.max(0, Math.min(remaining, basicThreshold - effectivePA));
+                // Basic rate band (20%) - width is based on nominal PA, not effective PA
+                const basicBand = Math.max(0, Math.min(remaining, basicThreshold - nominalPA));
                 remaining -= basicBand;
 
                 // Higher rate band (40%)
@@ -1498,8 +1500,8 @@
                 return { taxFree, basicBand, higherBand, additionalBand, tax };
             };
 
-            const baselineBands = calcBands(baselineEffectivePA, row.baseline_basic_threshold, row.baseline_additional_threshold);
-            const reformBands = calcBands(reformEffectivePA, row.reform_basic_threshold, row.reform_additional_threshold);
+            const baselineBands = calcBands(baselineEffectivePA, row.baseline_pa, row.baseline_basic_threshold, row.baseline_additional_threshold);
+            const reformBands = calcBands(reformEffectivePA, row.reform_pa, row.reform_basic_threshold, row.reform_additional_threshold);
 
             // Combined rows with section headers
             const allRows = [
@@ -2520,11 +2522,13 @@
             const baselineEffectivePA = calcEffectivePA(row.baseline_pa, row.baseline_taper_threshold);
             const reformEffectivePA = calcEffectivePA(row.reform_pa, row.reform_taper_threshold);
 
-            const calcBands = (effectivePA, basicThreshold, additionalThreshold) => {
+            // Note: The basic rate band width is (basicThreshold - nominalPA), NOT (basicThreshold - effectivePA)
+            // This matches how HMRC calculates tax: the band sizes are fixed, only taxable income changes
+            const calcBands = (effectivePA, nominalPA, basicThreshold, additionalThreshold) => {
                 let remaining = income;
                 const taxFree = Math.min(remaining, effectivePA);
                 remaining -= taxFree;
-                const basicBand = Math.max(0, Math.min(remaining, basicThreshold - effectivePA));
+                const basicBand = Math.max(0, Math.min(remaining, basicThreshold - nominalPA));
                 remaining -= basicBand;
                 const higherBand = Math.max(0, Math.min(remaining, additionalThreshold - basicThreshold));
                 remaining -= higherBand;
@@ -2533,8 +2537,8 @@
                 return { taxFree, basicBand, higherBand, additionalBand, tax };
             };
 
-            const baselineBands = calcBands(baselineEffectivePA, row.baseline_basic_threshold, row.baseline_additional_threshold);
-            const reformBands = calcBands(reformEffectivePA, row.reform_basic_threshold, row.reform_additional_threshold);
+            const baselineBands = calcBands(baselineEffectivePA, row.baseline_pa, row.baseline_basic_threshold, row.baseline_additional_threshold);
+            const reformBands = calcBands(reformEffectivePA, row.reform_pa, row.reform_basic_threshold, row.reform_additional_threshold);
 
             const allRows = [
                 { section: 'Policy parameters (affected by freeze)' },
