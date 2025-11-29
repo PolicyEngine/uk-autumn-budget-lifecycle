@@ -467,16 +467,16 @@
                 <div class="control-group">
                     <label>Age</label>
                     <div class="slider-container">
-                        <input type="range" id="current_age" value="30" min="18" max="80" step="1">
-                        <span class="slider-value" id="current_age_value">30</span>
+                        <input type="range" id="current_age" value="22" min="18" max="80" step="1">
+                        <span class="slider-value" id="current_age_value">22</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label>Salary</label>
                     <div class="slider-container">
-                        <input type="range" id="current_salary" value="40000" min="0" max="200000" step="1000">
-                        <span class="slider-value" id="current_salary_value">£40,000</span>
+                        <input type="range" id="current_salary" value="30000" min="0" max="200000" step="1000">
+                        <span class="slider-value" id="current_salary_value">£30,000</span>
                     </div>
                 </div>
 
@@ -499,16 +499,16 @@
                 <div class="control-group">
                     <label>Student loan debt</label>
                     <div class="slider-container">
-                        <input type="range" id="student_loan_debt" value="50000" min="0" max="100000" step="5000">
-                        <span class="slider-value" id="student_loan_debt_value">£50k</span>
+                        <input type="range" id="student_loan_debt" value="45000" min="0" max="100000" step="5000">
+                        <span class="slider-value" id="student_loan_debt_value">£45k</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label>Salary sacrifice</label>
                     <div class="slider-container">
-                        <input type="range" id="salary_sacrifice_per_year" value="5000" min="0" max="10000" step="100">
-                        <span class="slider-value" id="salary_sacrifice_per_year_value">£5,000</span>
+                        <input type="range" id="salary_sacrifice_per_year" value="0" min="0" max="10000" step="100">
+                        <span class="slider-value" id="salary_sacrifice_per_year_value">£0</span>
                     </div>
                 </div>
 
@@ -523,32 +523,32 @@
                 <div class="control-group">
                     <label>Petrol spending</label>
                     <div class="slider-container">
-                        <input type="range" id="petrol_spending_per_year" value="1500" min="0" max="10000" step="100">
-                        <span class="slider-value" id="petrol_spending_per_year_value">£1,500</span>
+                        <input type="range" id="petrol_spending_per_year" value="500" min="0" max="10000" step="100">
+                        <span class="slider-value" id="petrol_spending_per_year_value">£500</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label>Dividends</label>
                     <div class="slider-container">
-                        <input type="range" id="dividends_per_year" value="2000" min="0" max="10000" step="100">
-                        <span class="slider-value" id="dividends_per_year_value">£2,000</span>
+                        <input type="range" id="dividends_per_year" value="0" min="0" max="10000" step="100">
+                        <span class="slider-value" id="dividends_per_year_value">£0</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label>Savings interest</label>
                     <div class="slider-container">
-                        <input type="range" id="savings_interest_per_year" value="1500" min="0" max="10000" step="100">
-                        <span class="slider-value" id="savings_interest_per_year_value">£1,500</span>
+                        <input type="range" id="savings_interest_per_year" value="200" min="0" max="10000" step="100">
+                        <span class="slider-value" id="savings_interest_per_year_value">£200</span>
                     </div>
                 </div>
 
                 <div class="control-group">
                     <label>Property income</label>
                     <div class="slider-container">
-                        <input type="range" id="property_income_per_year" value="3000" min="0" max="10000" step="100">
-                        <span class="slider-value" id="property_income_per_year_value">£3,000</span>
+                        <input type="range" id="property_income_per_year" value="0" min="0" max="10000" step="100">
+                        <span class="slider-value" id="property_income_per_year_value">£0</span>
                     </div>
                 </div>
             </div>
@@ -596,6 +596,19 @@
                 <li><strong>Unearned income tax increase</strong> — 5% increase in tax on dividends, savings interest, and property income above allowances.</li>
                 <li><strong>Salary sacrifice cap</strong> — £2,000 annual cap on salary sacrifice for pensions, with employee (8%) and employer (15%) NICs charged on contributions above this.</li>
                 <li><strong>Student loan threshold freeze</strong> — Plan 2 repayment threshold frozen at £27,295 from 2027-2030, rather than rising with RPI. Debt written off after 30 years.</li>
+            </ul>
+
+            <h3>Default values</h3>
+            <p>The default inputs represent a typical 2025 university graduate entering the workforce:</p>
+            <ul>
+                <li><strong>Age 22</strong> — Standard 3-year undergraduate degree completion age.</li>
+                <li><strong>£30,000 salary</strong> — Median UK graduate starting salary for 2024-25 (<a href="https://www.highfliers.co.uk/download/2024/graduate_market/GMReport24.pdf" target="_blank">High Fliers Graduate Market Report 2024</a>).</li>
+                <li><strong>£45,000 student debt</strong> — Typical Plan 2 debt after a 3-year English university degree at current fee and maintenance loan levels.</li>
+                <li><strong>£0 salary sacrifice</strong> — New graduates typically don't contribute to pension salary sacrifice initially.</li>
+                <li><strong>£2,000 rail spending</strong> — Annual commuting costs for urban workers using rail.</li>
+                <li><strong>£500 petrol spending</strong> — Many new graduates don't own cars or drive infrequently.</li>
+                <li><strong>£0 dividends/property income</strong> — New graduates rarely have significant investment or rental income.</li>
+                <li><strong>£200 savings interest</strong> — Interest on a small emergency fund (~£5,000 at 4%).</li>
             </ul>
 
             <h3>Assumptions</h3>
