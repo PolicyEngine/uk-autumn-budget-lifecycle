@@ -744,18 +744,70 @@
             }
         }
 
+        // URL parameter management for shareable links
+        const SLIDER_IDS = [
+            'current_age', 'current_salary', 'retirement_age', 'life_expectancy', 'student_loan_debt',
+            'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
+            'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
+        ];
+
+        function getUrlParams() {
+            return new URLSearchParams(window.location.search);
+        }
+
+        function updateUrlParams() {
+            const params = new URLSearchParams();
+            SLIDER_IDS.forEach(id => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                    const defaultVal = slider.getAttribute('data-default');
+                    // Only include in URL if different from default
+                    if (slider.value !== defaultVal) {
+                        params.set(id, slider.value);
+                    }
+                }
+            });
+            const newUrl = params.toString()
+                ? `${window.location.pathname}?${params.toString()}`
+                : window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+
+        function loadFromUrlParams() {
+            const params = getUrlParams();
+            SLIDER_IDS.forEach(id => {
+                const slider = document.getElementById(id);
+                if (slider) {
+                    // Store default value for comparison later
+                    slider.setAttribute('data-default', slider.value);
+                    // Load from URL if present
+                    const urlValue = params.get(id);
+                    if (urlValue !== null) {
+                        const numVal = parseFloat(urlValue);
+                        const min = parseFloat(slider.min);
+                        const max = parseFloat(slider.max);
+                        // Validate within range
+                        if (!isNaN(numVal) && numVal >= min && numVal <= max) {
+                            slider.value = urlValue;
+                        }
+                    }
+                }
+            });
+        }
+
         // Initialize all slider displays
         function initSliders() {
-            const sliderIds = [
-                'current_age', 'current_salary', 'retirement_age', 'life_expectancy', 'student_loan_debt',
-                'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
-                'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
-            ];
-            sliderIds.forEach(id => {
+            // First load values from URL params
+            loadFromUrlParams();
+            // Then set up displays and event listeners
+            SLIDER_IDS.forEach(id => {
                 const slider = document.getElementById(id);
                 if (slider) {
                     updateSliderDisplay(id);
-                    slider.addEventListener('input', () => updateSliderDisplay(id));
+                    slider.addEventListener('input', () => {
+                        updateSliderDisplay(id);
+                        updateUrlParams();
+                    });
                 }
             });
         }
