@@ -537,7 +537,7 @@
                     <label title="Initial debt at graduation. Evolves based on interest and repayments.">Student loan debt</label>
                     <div class="slider-container">
                         <input type="range" id="student_loan_debt" value="45000" min="0" max="100000" step="5000">
-                        <span class="slider-value" id="student_loan_debt_value">£45k</span>
+                        <span class="slider-value" id="student_loan_debt_value">£45,000</span>
                     </div>
                 </div>
 
@@ -840,9 +840,6 @@
             const v = parseFloat(value);
             if (id === 'current_age' || id === 'retirement_age' || id === 'life_expectancy') {
                 return v.toString();
-            }
-            if (id === 'student_loan_debt') {
-                return `£${Math.round(v / 1000)}k`;
             }
             return `£${d3.format(',.0f')(v)}`;
         }
