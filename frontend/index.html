@@ -533,7 +533,7 @@
                             <input type="checkbox" id="real-terms-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
-                        <span class="toggle-label real active" id="real-label">2026 £</span>
+                        <span class="toggle-label real active" id="real-label">2025 £</span>
                     </div>
                 </div>
                 <div class="summary" id="summary"></div>
@@ -621,26 +621,26 @@
         let previousData = [];
         const ANIMATION_DURATION = 400;
 
-        // CPI forecasts for deflating to 2026 terms
+        // CPI forecasts for deflating to 2025 terms
         // Source: OBR Economic and Fiscal Outlook
         const CPI_FORECASTS = {2024: 0.0233, 2025: 0.0318, 2026: 0.0193, 2027: 0.0200, 2028: 0.0200, 2029: 0.0200};
         const CPI_LONG_TERM = 0.0200;
 
-        // Track real vs nominal display mode (default: real/2026 terms)
+        // Track real vs nominal display mode (default: real/2025 terms)
         let showRealTerms = true;
 
-        // Calculate cumulative inflation from 2026 to target year
+        // Calculate cumulative inflation from 2025 to target year
         function getCumulativeInflation(targetYear) {
-            if (targetYear <= 2026) return 1.0;
+            if (targetYear <= 2025) return 1.0;
             let factor = 1.0;
-            for (let y = 2026; y < targetYear; y++) {
+            for (let y = 2025; y < targetYear; y++) {
                 const rate = CPI_FORECASTS[y] || CPI_LONG_TERM;
                 factor *= (1 + rate);
             }
             return factor;
         }
 
-        // Convert nominal value to 2026 real terms
+        // Convert nominal value to 2025 real terms
         function toRealTerms(value, year) {
             if (!showRealTerms) return value;
             const inflationFactor = getCumulativeInflation(year);
@@ -655,7 +655,7 @@
 
         // Get terms suffix for labels
         function getTermsSuffix() {
-            return showRealTerms ? ' (2026 £)' : '';
+            return showRealTerms ? ' (2025 £)' : '';
         }
 
         // Get adjusted data for display (applies real terms conversion if enabled)
@@ -769,7 +769,7 @@
             const summaryEl = d3.select('#summary');
 
             // Labels change based on real/nominal mode
-            const termsLabel = showRealTerms ? ' (2026 £)' : '';
+            const termsLabel = showRealTerms ? ' (2025 £)' : '';
 
             // Net lifetime impact (highlighted)
             const summaryItem = summaryEl.append('div').attr('class', 'summary-item highlighted');
