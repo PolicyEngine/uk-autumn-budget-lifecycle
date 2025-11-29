@@ -740,9 +740,23 @@
 
     <!-- Config: set API_URL before loading main script -->
     <script>
-        // For production, replace this URL with your Cloud Run backend URL
-        // Or set window.API_URL in a separate config.js file
-        window.API_URL = window.API_URL || 'https://uk-autumn-budget-lifecycle-578039519715.europe-west1.run.app';
+        // Auto-detect local development vs production
+        // Use ?local=1 in URL to force localhost, or ?local=0 to force production
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceLocal = urlParams.get('local');
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+        const PROD_API = 'https://uk-autumn-budget-lifecycle-578039519715.europe-west1.run.app';
+        const LOCAL_API = 'http://localhost:8000';
+
+        if (forceLocal === '1') {
+            window.API_URL = LOCAL_API;
+        } else if (forceLocal === '0') {
+            window.API_URL = PROD_API;
+        } else {
+            // Default: use localhost when running locally, production otherwise
+            window.API_URL = window.API_URL || (isLocalhost ? LOCAL_API : PROD_API);
+        }
     </script>
     <script>
         const API_URL = window.API_URL;
