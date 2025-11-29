@@ -2060,42 +2060,76 @@
                 return html;
             };
 
-            const incomeRows = [
+            const allRows = [
+                { section: 'Your unearned income' },
                 { label: 'Dividend income', preAB: dividends, postAB: dividends },
                 { label: 'Savings interest', preAB: savingsInterest, postAB: savingsInterest },
                 { label: 'Property income', preAB: propertyIncome, postAB: propertyIncome },
-            ];
-
-            const allowanceRows = [
+                { section: 'Allowances & rate band' },
                 { label: 'Dividend allowance', preAB: DIVIDEND_ALLOWANCE, postAB: DIVIDEND_ALLOWANCE },
                 { label: 'Savings allowance', preAB: SAVINGS_ALLOWANCE, postAB: SAVINGS_ALLOWANCE },
                 { label: 'Rate band', preAB: isHigherRate ? 'Higher rate' : 'Basic rate', postAB: isHigherRate ? 'Higher rate' : 'Basic rate', isText: true },
-            ];
-
-            const taxRows = [
+                { section: 'Tax calculation' },
                 { label: 'Tax on dividends', preAB: dividendTax, postAB: dividendTax * 1.05 },
                 { label: 'Tax on savings', preAB: savingsTax, postAB: savingsTax * 1.05 },
                 { label: 'Tax on property', preAB: propertyTax, postAB: propertyTax * 1.05 },
-                { label: 'Total unearned income tax', preAB: totalTax, postAB: totalTaxPostAB },
+                { separator: true },
+                { label: 'Total unearned income tax', preAB: totalTax, postAB: totalTaxPostAB, highlight: true },
             ];
 
-            const summaryRows = [
-                { label: 'Additional tax (5% increase)', preAB: 0, postAB: impact },
-            ];
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else if (r.isText) {
+                    tableHtml += `
+                        <tr>
+                            <td style="${labelStyle}">${r.label}</td>
+                            <td style="${tdStyle}">${r.preAB}</td>
+                            <td style="${tdStyle}">${r.postAB}</td>
+                            <td style="${tdStyle}">-</td>
+                        </tr>
+                    `;
+                } else {
+                    const diff = r.postAB - r.preAB;
+                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
+                    tableHtml += `
+                        <tr style="${rowStyle}">
+                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
+                            <td style="${tdStyle}">${formatDiff(diff)}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
 
             const html = `
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned Income Tax (${year})</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned income tax (${year})</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">5% increase in tax on dividends, savings, and property income</div>
                         </div>
                     </div>
 
-                    ${renderTable(incomeRows, 'Your Unearned Income')}
-                    ${renderTable(allowanceRows, 'Allowances & Rate Band')}
-                    ${renderTable(taxRows, 'Tax Calculation')}
-                    ${renderTable(summaryRows, 'Summary')}
+                    ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> The Autumn Budget increased taxes on unearned income (dividends, savings interest, property income) by 5%. Tax is calculated after applying allowances (£${DIVIDEND_ALLOWANCE} dividend, £${SAVINGS_ALLOWANCE} savings at your income level). ${isHigherRate ? 'As a higher-rate taxpayer, you pay higher rates on this income.' : 'As a basic-rate taxpayer, you pay lower rates on this income.'}

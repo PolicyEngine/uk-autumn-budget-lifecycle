@@ -64,6 +64,12 @@ DIVIDEND_ALLOWANCE = 500
 SAVINGS_ALLOWANCE_BASIC = 1_000
 SAVINGS_ALLOWANCE_HIGHER = 500
 
+# State pension (2024-25 full new state pension)
+STATE_PENSION_WEEKLY_2024 = 221.20
+STATE_PENSION_ANNUAL_2024 = STATE_PENSION_WEEKLY_2024 * 52  # ~£11,502
+STATE_PENSION_AGE = 67
+TRIPLE_LOCK_MINIMUM = 0.025  # 2.5% floor
+
 # Earnings growth plateaus at peak (no decline approaching retirement)
 EARNINGS_GROWTH_BY_AGE = {
     22: 1.00, 23: 1.05, 24: 1.10, 25: 1.16, 26: 1.22, 27: 1.28, 28: 1.35,
@@ -103,6 +109,28 @@ def get_cumulative_inflation(base_year: int, target_year: int, use_rpi: bool = F
         rate = get_rpi(y) if use_rpi else get_cpi(y)
         factor *= (1 + rate)
     return factor
+
+
+# Average earnings growth (used for triple lock)
+# Source: OBR forecasts - using ~4% nominal as simplified assumption
+EARNINGS_GROWTH_RATE = 0.04
+
+
+def get_state_pension(year: int) -> float:
+    """Calculate state pension for a given year using triple lock uprating.
+
+    Triple lock: pension rises by max of CPI, average earnings growth, or 2.5%.
+    """
+    if year <= 2024:
+        return STATE_PENSION_ANNUAL_2024
+
+    pension = STATE_PENSION_ANNUAL_2024
+    for y in range(2024, year):
+        cpi = get_cpi(y)
+        # Triple lock: max of CPI, earnings growth, or 2.5%
+        uprating = max(cpi, EARNINGS_GROWTH_RATE, TRIPLE_LOCK_MINIMUM)
+        pension *= (1 + uprating)
+    return pension
 
 
 
@@ -385,13 +413,17 @@ def run_model(inputs: ModelInputs) -> list[dict]:
 
         is_retired = age > inputs.retirement_age
 
-        # Calculate gross income
+        # Calculate gross income (employment income + state pension if retired)
         if is_retired:
-            gross_income = 0
+            employment_income = 0
+            state_pension = get_state_pension(current_year)
+            gross_income = state_pension
         else:
             base_multiplier = EARNINGS_GROWTH_BY_AGE.get(age, PEAK_EARNINGS_MULTIPLIER)
             additional_growth = (1 + inputs.additional_income_growth_rate) ** years_since_graduation
-            gross_income = starting_salary * base_multiplier * additional_growth
+            employment_income = starting_salary * base_multiplier * additional_growth
+            state_pension = 0
+            gross_income = employment_income
 
         # Calculate both scenarios using the unified function
         baseline = calculate_scenario(gross_income, current_year, years_since_graduation, baseline_debt, freeze_end_year=2028)
@@ -447,6 +479,8 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "age": age,
             "year": current_year,
             "gross_income": round(gross_income),
+            "employment_income": round(employment_income),
+            "state_pension": round(state_pension),
             "income_tax": round(reform["income_tax"]),
             "national_insurance": round(ni),
             "student_loan_payment": round(reform["sl_payment"]),
