@@ -64,11 +64,23 @@ DIVIDEND_ALLOWANCE = 500
 SAVINGS_ALLOWANCE_BASIC = 1_000
 SAVINGS_ALLOWANCE_HIGHER = 500
 
-# State pension (2024-25 full new state pension)
-STATE_PENSION_WEEKLY_2024 = 221.20
-STATE_PENSION_ANNUAL_2024 = STATE_PENSION_WEEKLY_2024 * 52  # ~£11,502
+# State pension forecasts (full new state pension, annual amounts)
+# Source: OBR Economic and Fiscal Outlook, November 2025
+# https://media.quilter.com/search/state-pension-just-15p-shy-of-breaching-tax-allowances-in-2026-forecasts-obr/
+# OBR projects the triple lock directly, so we use their forecasts
+STATE_PENSION_FORECASTS = {
+    2024: 11541.90,   # £221.20/week * 52.14
+    2025: 12016.75,   # 4.1% triple lock increase
+    2026: 12569.85,   # 4.6% triple lock increase (15p shy of PA!)
+    2027: 12885.50,   # 2.5% triple lock minimum
+}
+# Long-term triple lock growth rate
+# OBR FSR 2024: triple lock averages 0.53pp above earnings growth historically
+# OBR long-term assumptions: 2% productivity + 2% inflation = ~4% nominal earnings
+# Triple lock = max(CPI, earnings, 2.5%) averages ~4.5% over long term
+# Source: https://obr.uk/frs/fiscal-risks-and-sustainability-july-2025/
+STATE_PENSION_LONG_TERM_GROWTH = 0.04  # Conservative estimate (CPI target + productivity)
 STATE_PENSION_AGE = 67
-TRIPLE_LOCK_MINIMUM = 0.025  # 2.5% floor
 
 # Earnings growth plateaus at peak (no decline approaching retirement)
 EARNINGS_GROWTH_BY_AGE = {
@@ -111,25 +123,20 @@ def get_cumulative_inflation(base_year: int, target_year: int, use_rpi: bool = F
     return factor
 
 
-# Average earnings growth (used for triple lock)
-# Source: OBR forecasts - using ~4% nominal as simplified assumption
-EARNINGS_GROWTH_RATE = 0.04
-
-
 def get_state_pension(year: int) -> float:
-    """Calculate state pension for a given year using triple lock uprating.
+    """Get state pension for a given year using OBR forecasts.
 
-    Triple lock: pension rises by max of CPI, average earnings growth, or 2.5%.
+    Uses OBR's direct state pension projections where available,
+    then extrapolates with 2.5% growth (triple lock floor) beyond forecast horizon.
     """
-    if year <= 2024:
-        return STATE_PENSION_ANNUAL_2024
+    if year in STATE_PENSION_FORECASTS:
+        return STATE_PENSION_FORECASTS[year]
 
-    pension = STATE_PENSION_ANNUAL_2024
-    for y in range(2024, year):
-        cpi = get_cpi(y)
-        # Triple lock: max of CPI, earnings growth, or 2.5%
-        uprating = max(cpi, EARNINGS_GROWTH_RATE, TRIPLE_LOCK_MINIMUM)
-        pension *= (1 + uprating)
+    # Beyond forecast horizon: grow from last known year at triple lock floor
+    last_forecast_year = max(STATE_PENSION_FORECASTS.keys())
+    pension = STATE_PENSION_FORECASTS[last_forecast_year]
+    for _ in range(last_forecast_year, year):
+        pension *= (1 + STATE_PENSION_LONG_TERM_GROWTH)
     return pension
 
 
@@ -224,11 +231,53 @@ def calculate_fuel_duty_impact(petrol_spending: float, fiscal_year: int) -> floa
     return petrol_spending * (FUEL_DUTY_UNFROZEN - reform_rate) / AVG_PETROL_PRICE_PER_LITRE
 
 
-def calculate_rail_impact(rail_spending: float, current_year: int) -> float:
+def calculate_rail_impact(rail_spending_base: float, current_year: int, base_year: int = 2024) -> float:
+    """Calculate savings from rail fare freeze in 2026.
+
+    Rail fares normally increase by RPI + 1% annually.
+    The 2026 freeze means fares stay at 2025 levels for one year.
+    After 2026, fares resume normal increases but from the lower frozen base.
+
+    Args:
+        rail_spending_base: Annual rail spending in base_year prices
+        current_year: Year to calculate for
+        base_year: Year the spending input is denominated in
+
+    Returns:
+        Savings (positive = benefit) from the freeze policy
+    """
     if current_year < 2026:
         return 0
-    rpi_2025 = get_rpi(2025)
-    return rail_spending * rpi_2025
+
+    # Rail fares increase by RPI + 1% annually
+    RAIL_MARKUP = 0.01  # 1% above RPI
+
+    # Calculate cumulative fare index from base year to current year
+    # Pre-AB (no freeze): fares increase every year by RPI + 1%
+    # Post-AB (freeze): fares frozen in 2026, then resume increases
+
+    def get_fare_index(target_year: int, freeze_2026: bool) -> float:
+        """Get cumulative fare index from base_year to target_year."""
+        index = 1.0
+        for y in range(base_year, target_year):
+            if freeze_2026 and y == 2025:
+                # In 2026, fares don't increase (frozen at 2025 level)
+                continue
+            rpi = get_rpi(y)
+            index *= (1 + rpi + RAIL_MARKUP)
+        return index
+
+    # Pre-AB: fares would have increased in 2026
+    preAB_index = get_fare_index(current_year, freeze_2026=False)
+    # Post-AB: fares frozen in 2026
+    postAB_index = get_fare_index(current_year, freeze_2026=True)
+
+    # Spending in current year
+    preAB_spending = rail_spending_base * preAB_index
+    postAB_spending = rail_spending_base * postAB_index
+
+    # Savings = what you would have spent - what you actually spend
+    return preAB_spending - postAB_spending
 
 
 def calculate_salary_sacrifice_impact(salary_sacrifice: float, gross_income: float) -> float:
