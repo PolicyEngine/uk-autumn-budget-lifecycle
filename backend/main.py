@@ -94,9 +94,10 @@ PEAK_EARNINGS_MULTIPLIER = 2.20  # Plateau from age 50 onwards
 
 
 class ModelInputs(BaseModel):
-    starting_salary: float = 30_000
-    graduation_year: int = 2024
+    current_age: int = 30
+    current_salary: float = 40_000  # 2025 values
     retirement_age: int = 67
+    life_expectancy: int = 85
     student_loan_debt: float = 50_000
     salary_sacrifice_per_year: float = 5_000
     rail_spending_per_year: float = 2_000
@@ -439,14 +440,24 @@ def calculate_scenario(
 
 
 def run_model(inputs: ModelInputs) -> list[dict]:
-    # Starting salary is what they earned at age 22 in their graduation year
-    starting_salary = inputs.starting_salary
+    # Current salary is the 2025 value at current_age
+    current_salary = inputs.current_salary
+    current_age = inputs.current_age
+    input_year = 2025  # All inputs are in 2025 values
+
+    # Calculate what starting salary (at age 22) would be to produce current salary at current age
+    current_age_multiplier = EARNINGS_GROWTH_BY_AGE.get(current_age, PEAK_EARNINGS_MULTIPLIER)
+    base_multiplier_22 = EARNINGS_GROWTH_BY_AGE.get(22, 1.0)
+    starting_salary = current_salary / current_age_multiplier * base_multiplier_22
+
+    # Derive graduation year from current age (assume graduated at 22)
     graduation_age = 22
-    graduation_year = inputs.graduation_year
+    graduation_year = input_year - (current_age - graduation_age)
 
     # Simulation runs from 2026 onwards (when Autumn Budget policies take effect)
     base_year = 2026
-    end_year = 2100
+    # End year is when person reaches life expectancy
+    end_year = input_year + (inputs.life_expectancy - current_age)
     results = []
 
     # Track two separate debt paths: baseline (Pre-AB) and reform (Post-AB)
@@ -457,7 +468,7 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         years_since_graduation = current_year - graduation_year
         age = graduation_age + years_since_graduation
 
-        if age < graduation_age or age > 100:
+        if age < current_age or age > inputs.life_expectancy:
             continue
 
         is_retired = age > inputs.retirement_age

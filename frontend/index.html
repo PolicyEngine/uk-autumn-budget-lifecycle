@@ -17,8 +17,17 @@
             -webkit-font-smoothing: antialiased;
         }
         .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 24px;
+        }
+        .header-content { flex: 1; }
+        .header-logo img { opacity: 0.9; transition: opacity 0.15s; }
+        .header-logo:hover img { opacity: 1; }
         h1 { font-size: 1.75rem; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
-        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 24px; line-height: 1.6; }
+        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 0; line-height: 1.6; }
         .layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
 
         .controls {
@@ -143,7 +152,14 @@
             border-radius: 12px;
             padding: 24px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
         }
+        .chart-watermark {
+            display: flex;
+            align-items: center;
+        }
+        .chart-watermark img { height: 24px; opacity: 0.5; transition: opacity 0.15s; }
+        .chart-watermark:hover img { opacity: 0.8; }
         #chart { width: 100%; height: 400px; }
         .axis text { fill: #64748b; font-size: 11px; }
         .axis path, .axis line { stroke: #e2e8f0; }
@@ -155,10 +171,15 @@
         .download-buttons {
             display: flex;
             gap: 12px;
-            justify-content: center;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 20px;
             padding-top: 16px;
             border-top: 1px solid #e2e8f0;
+        }
+        .download-buttons-inner {
+            display: flex;
+            gap: 12px;
         }
         .download-btn {
             padding: 8px 16px;
@@ -314,14 +335,28 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
         }
-        .modal-title { font-size: 1.25rem; font-weight: 600; }
+        .modal-title { font-size: 1.25rem; font-weight: 600; flex: 1; text-align: center; }
+        .modal-nav {
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            color: #374151;
+            transition: all 0.15s ease;
+        }
+        .modal-nav:hover:not(:disabled) { background: #e5e7eb; }
+        .modal-nav:disabled { opacity: 0.3; cursor: not-allowed; }
         .modal-close {
             background: none;
             border: none;
             font-size: 1.5rem;
             cursor: pointer;
             color: #888;
+            margin-left: 8px;
         }
         .modal-close:hover { color: #333; }
         .modal-body { padding: 24px; }
@@ -415,26 +450,33 @@
 </head>
 <body>
     <div class="container">
-        <h1>Lifetime policy impact</h1>
-        <p class="subtitle">Model the impact of budget reforms on a graduate over their working life</p>
+        <div class="header">
+            <div class="header-content">
+                <h1>Lifetime policy impact</h1>
+                <p class="subtitle">Model the impact of UK budget policy reforms over your lifetime</p>
+            </div>
+            <a href="https://policyengine.org" target="_blank" class="header-logo">
+                <img src="assets/policyengine-logo.svg" alt="PolicyEngine" height="36">
+            </a>
+        </div>
 
         <div class="layout">
             <div class="controls">
-                <h2>Household inputs</h2>
+                <h2>Household inputs (2025)</h2>
 
                 <div class="control-group">
-                    <label>Starting salary</label>
+                    <label>Age</label>
                     <div class="slider-container">
-                        <input type="range" id="starting_salary" value="30000" min="0" max="80000" step="1000">
-                        <span class="slider-value" id="starting_salary_value">£30,000</span>
+                        <input type="range" id="current_age" value="30" min="18" max="80" step="1">
+                        <span class="slider-value" id="current_age_value">30</span>
                     </div>
                 </div>
 
                 <div class="control-group">
-                    <label>Graduation year</label>
+                    <label>Salary</label>
                     <div class="slider-container">
-                        <input type="range" id="graduation_year" value="2024" min="2020" max="2030" step="1">
-                        <span class="slider-value" id="graduation_year_value">2024</span>
+                        <input type="range" id="current_salary" value="40000" min="0" max="200000" step="1000">
+                        <span class="slider-value" id="current_salary_value">£40,000</span>
                     </div>
                 </div>
 
@@ -447,6 +489,14 @@
                 </div>
 
                 <div class="control-group">
+                    <label>Life expectancy</label>
+                    <div class="slider-container">
+                        <input type="range" id="life_expectancy" value="85" min="60" max="100" step="1">
+                        <span class="slider-value" id="life_expectancy_value">85</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
                     <label>Student loan debt</label>
                     <div class="slider-container">
                         <input type="range" id="student_loan_debt" value="50000" min="0" max="100000" step="5000">
@@ -455,7 +505,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Salary sacrifice (£/year)</label>
+                    <label>Salary sacrifice</label>
                     <div class="slider-container">
                         <input type="range" id="salary_sacrifice_per_year" value="5000" min="0" max="10000" step="100">
                         <span class="slider-value" id="salary_sacrifice_per_year_value">£5,000</span>
@@ -463,7 +513,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Rail spending (£/year)</label>
+                    <label>Rail spending</label>
                     <div class="slider-container">
                         <input type="range" id="rail_spending_per_year" value="2000" min="0" max="10000" step="100">
                         <span class="slider-value" id="rail_spending_per_year_value">£2,000</span>
@@ -471,7 +521,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Petrol spending (£/year)</label>
+                    <label>Petrol spending</label>
                     <div class="slider-container">
                         <input type="range" id="petrol_spending_per_year" value="1500" min="0" max="10000" step="100">
                         <span class="slider-value" id="petrol_spending_per_year_value">£1,500</span>
@@ -479,7 +529,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Dividends (£/year)</label>
+                    <label>Dividends</label>
                     <div class="slider-container">
                         <input type="range" id="dividends_per_year" value="2000" min="0" max="10000" step="100">
                         <span class="slider-value" id="dividends_per_year_value">£2,000</span>
@@ -487,7 +537,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Savings interest (£/year)</label>
+                    <label>Savings interest</label>
                     <div class="slider-container">
                         <input type="range" id="savings_interest_per_year" value="1500" min="0" max="10000" step="100">
                         <span class="slider-value" id="savings_interest_per_year_value">£1,500</span>
@@ -495,7 +545,7 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Property income (£/year)</label>
+                    <label>Property income</label>
                     <div class="slider-container">
                         <input type="range" id="property_income_per_year" value="3000" min="0" max="10000" step="100">
                         <span class="slider-value" id="property_income_per_year_value">£3,000</span>
@@ -511,7 +561,7 @@
                             <input type="checkbox" id="real-terms-toggle" checked>
                             <span class="toggle-slider"></span>
                         </label>
-                        <span class="toggle-label real active" id="real-label">2026 £</span>
+                        <span class="toggle-label real active" id="real-label">2025 £</span>
                     </div>
                 </div>
                 <div class="summary" id="summary"></div>
@@ -519,8 +569,15 @@
                     <div id="chart"><div class="loading">Loading...</div></div>
                     <div class="legend" id="legend"></div>
                     <div class="download-buttons">
-                        <button class="download-btn" id="download-svg">Download SVG</button>
-                        <button class="download-btn" id="download-csv">Download CSV</button>
+                        <div class="download-buttons-inner">
+                            <button class="download-btn" id="download-svg">Download SVG</button>
+                            <button class="download-btn" id="download-csv">Download CSV</button>
+                        </div>
+                        <div class="chart-watermark">
+                            <a href="https://policyengine.org" target="_blank">
+                                <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -558,7 +615,9 @@
     <div class="modal-overlay" id="modal-overlay">
         <div class="modal">
             <div class="modal-header">
+                <button class="modal-nav" id="modal-prev" title="Previous year">&larr;</button>
                 <div class="modal-title" id="modal-title">Age 30</div>
+                <button class="modal-nav" id="modal-next" title="Next year">&rarr;</button>
                 <button class="modal-close" id="modal-close">&times;</button>
             </div>
             <div class="modal-body" id="modal-body"></div>
@@ -597,26 +656,26 @@
         let previousData = [];
         const ANIMATION_DURATION = 400;
 
-        // CPI forecasts for deflating to 2026 terms
+        // CPI forecasts for deflating to 2025 terms
         // Source: OBR Economic and Fiscal Outlook
         const CPI_FORECASTS = {2024: 0.0233, 2025: 0.0318, 2026: 0.0193, 2027: 0.0200, 2028: 0.0200, 2029: 0.0200};
         const CPI_LONG_TERM = 0.0200;
 
-        // Track real vs nominal display mode (default: real/2026 terms)
+        // Track real vs nominal display mode (default: real/2025 terms)
         let showRealTerms = true;
 
-        // Calculate cumulative inflation from 2026 to target year
+        // Calculate cumulative inflation from 2025 to target year
         function getCumulativeInflation(targetYear) {
-            if (targetYear <= 2026) return 1.0;
+            if (targetYear <= 2025) return 1.0;
             let factor = 1.0;
-            for (let y = 2026; y < targetYear; y++) {
+            for (let y = 2025; y < targetYear; y++) {
                 const rate = CPI_FORECASTS[y] || CPI_LONG_TERM;
                 factor *= (1 + rate);
             }
             return factor;
         }
 
-        // Convert nominal value to 2026 real terms
+        // Convert nominal value to 2025 real terms
         function toRealTerms(value, year) {
             if (!showRealTerms) return value;
             const inflationFactor = getCumulativeInflation(year);
@@ -631,7 +690,7 @@
 
         // Get terms suffix for labels
         function getTermsSuffix() {
-            return showRealTerms ? ' (2026 £)' : '';
+            return showRealTerms ? ' (2025 £)' : '';
         }
 
         // Get adjusted data for display (applies real terms conversion if enabled)
@@ -659,7 +718,7 @@
         // Format slider values for display
         function formatSliderValue(id, value) {
             const v = parseFloat(value);
-            if (id === 'retirement_age' || id === 'graduation_year') {
+            if (id === 'current_age' || id === 'retirement_age' || id === 'life_expectancy') {
                 return v.toString();
             }
             if (id === 'student_loan_debt') {
@@ -680,7 +739,7 @@
         // Initialize all slider displays
         function initSliders() {
             const sliderIds = [
-                'starting_salary', 'graduation_year', 'retirement_age', 'student_loan_debt',
+                'current_age', 'current_salary', 'retirement_age', 'life_expectancy', 'student_loan_debt',
                 'salary_sacrifice_per_year', 'rail_spending_per_year', 'petrol_spending_per_year',
                 'dividends_per_year', 'savings_interest_per_year', 'property_income_per_year'
             ];
@@ -695,9 +754,10 @@
 
         function getInputs() {
             return {
-                starting_salary: parseFloat(document.getElementById('starting_salary').value),
-                graduation_year: parseInt(document.getElementById('graduation_year').value),
+                current_age: parseInt(document.getElementById('current_age').value),
+                current_salary: parseFloat(document.getElementById('current_salary').value),
                 retirement_age: parseInt(document.getElementById('retirement_age').value),
+                life_expectancy: parseInt(document.getElementById('life_expectancy').value),
                 student_loan_debt: parseFloat(document.getElementById('student_loan_debt').value),
                 salary_sacrifice_per_year: parseFloat(document.getElementById('salary_sacrifice_per_year').value),
                 rail_spending_per_year: parseFloat(document.getElementById('rail_spending_per_year').value),
@@ -744,7 +804,7 @@
             const summaryEl = d3.select('#summary');
 
             // Labels change based on real/nominal mode
-            const termsLabel = showRealTerms ? ' (2026 £)' : '';
+            const termsLabel = showRealTerms ? ' (2025 £)' : '';
 
             // Net lifetime impact (highlighted)
             const summaryItem = summaryEl.append('div').attr('class', 'summary-item highlighted');
@@ -829,6 +889,8 @@
 
             const yMax = d3.max(stackedData, d => d.posTotal);
             const yMin = d3.min(stackedData, d => d.negTotal);
+            // Make y-axis symmetric about 0
+            const yExtent = Math.max(Math.abs(yMax), Math.abs(yMin)) * 1.1;
 
             const x = d3.scaleBand()
                 .domain(data.map(d => d.age))
@@ -836,7 +898,7 @@
                 .padding(0.15);
 
             const y = d3.scaleLinear()
-                .domain([yMin * 1.1, yMax * 1.1])
+                .domain([-yExtent, yExtent])
                 .range([height, 0]);
 
             let svg, chartG;
@@ -974,7 +1036,8 @@
                     .attr('class', 'zero-line')
                     .attr('x1', 0).attr('x2', width)
                     .attr('y1', y(0)).attr('y2', y(0))
-                    .attr('stroke', '#ccc');
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 2);
 
                 const ageGroups = chartG.selectAll('.age-group')
                     .data(stackedData, d => d.age)
@@ -1342,7 +1405,8 @@
             const income = row.gross_income;
             const year = row.year;
             const inputs = getInputs();
-            const yearsFromGrad = year - inputs.graduation_year;
+            // Years since graduation (assuming graduation at age 22)
+            const yearsFromGrad = row.age - 22;
 
             // Policy takes effect from 2027 (when threshold was due to be uprated)
             if (year < 2027) {
@@ -1741,7 +1805,7 @@
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Rail fare freeze (${year})${termsLabel}</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Rail fare freeze${termsLabel}</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">One-year freeze on rail fares in 2026</div>
                         </div>
                     </div>
@@ -1868,7 +1932,7 @@
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Fuel duty reform (${year})${termsLabel}</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Fuel duty reform${termsLabel}</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">${rateDescription}</div>
                         </div>
                     </div>
@@ -2039,7 +2103,7 @@
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned income tax (${year})</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned income tax</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">5% increase in tax on dividends, savings, and property income</div>
                         </div>
                     </div>
@@ -2061,17 +2125,49 @@
         const modalTitle = document.getElementById('modal-title');
         const modalBody = document.getElementById('modal-body');
         const modalClose = document.getElementById('modal-close');
+        const modalPrev = document.getElementById('modal-prev');
+        const modalNext = document.getElementById('modal-next');
+
+        let modalActiveTab = 'summary';
+        let currentModalAge = null;
 
         modalClose.addEventListener('click', () => modalOverlay.classList.remove('active'));
         modalOverlay.addEventListener('click', (e) => {
             if (e.target === modalOverlay) modalOverlay.classList.remove('active');
         });
 
-        let modalActiveTab = 'summary';
+        // Navigation button handlers
+        modalPrev.addEventListener('click', () => {
+            if (currentModalAge === null || !currentData.length) return;
+            const ages = currentData.map(d => d.age).sort((a, b) => a - b);
+            const currentIndex = ages.indexOf(currentModalAge);
+            if (currentIndex > 0) {
+                showModal(ages[currentIndex - 1], modalActiveTab);
+            }
+        });
+
+        modalNext.addEventListener('click', () => {
+            if (currentModalAge === null || !currentData.length) return;
+            const ages = currentData.map(d => d.age).sort((a, b) => a - b);
+            const currentIndex = ages.indexOf(currentModalAge);
+            if (currentIndex < ages.length - 1) {
+                showModal(ages[currentIndex + 1], modalActiveTab);
+            }
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!modalOverlay.classList.contains('active')) return;
+            if (e.key === 'ArrowLeft') modalPrev.click();
+            else if (e.key === 'ArrowRight') modalNext.click();
+            else if (e.key === 'Escape') modalOverlay.classList.remove('active');
+        });
 
         function showModal(age, initialTab = null) {
             const row = currentData.find(d => d.age === age);
             if (!row) return;
+
+            currentModalAge = age;
 
             // Set the active tab based on initialTab parameter
             if (initialTab) {
@@ -2083,6 +2179,12 @@
             const slDebt = row.student_loan_debt_remaining;
 
             modalTitle.textContent = `Age ${age} (${year})`;
+
+            // Update nav button states
+            const ages = currentData.map(d => d.age).sort((a, b) => a - b);
+            const currentIndex = ages.indexOf(age);
+            modalPrev.disabled = currentIndex <= 0;
+            modalNext.disabled = currentIndex >= ages.length - 1;
 
             // Build summary section
             let summaryHtml = `
@@ -2481,7 +2583,7 @@
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned income tax (${year})</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Unearned income tax</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">5% increase in tax on dividends, savings, and property income</div>
                         </div>
                     </div>
