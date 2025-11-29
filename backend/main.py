@@ -117,6 +117,98 @@ STATE_PENSION_FORECASTS = {
 STATE_PENSION_LONG_TERM_GROWTH = 0.04  # Conservative estimate (CPI target + productivity)
 STATE_PENSION_AGE = 67
 
+# Universal Credit child element parameters
+# Source: policyengine-uk parameters for 2025-26
+# https://github.com/PolicyEngine/policyengine-uk/tree/main/policyengine_uk/parameters/gov/dwp/universal_credit/elements/child
+#
+# Note: UC benefit uprating is not automatic - it requires an annual decision by the
+# Secretary of State. However, in practice UC amounts have been consistently uprated
+# by CPI each year (September CPI, effective from April). We assume this continues.
+UC_CHILD_ELEMENT_ANNUAL_2025 = 3513.72  # £292.81/month * 12
+UC_CHILD_ELEMENT_MAX_AGE = 18  # Children up to age 18 (or 19 if in approved education)
+UC_TWO_CHILD_LIMIT_END_YEAR = 2026  # Autumn Budget 2025 removes limit from April 2026
+UC_TWO_CHILD_LIMIT = 2  # Number of children covered before limit kicks in
+
+# UC income tapering parameters
+# Source: policyengine-uk parameters for 2025-26
+# https://github.com/PolicyEngine/policyengine-uk/tree/main/policyengine_uk/parameters/gov/dwp/universal_credit/means_test
+#
+# UC is reduced by the taper rate for every £1 of net earnings above the work allowance.
+# If earnings are high enough, UC can be tapered to zero.
+UC_TAPER_RATE = 0.55  # 55% taper on net earnings above work allowance
+UC_WORK_ALLOWANCE_WITH_HOUSING_2025 = 404 * 12  # £404/month = £4,848/year
+UC_WORK_ALLOWANCE_NO_HOUSING_2025 = 673 * 12  # £673/month = £8,076/year
+
+
+def calculate_uc_child_element_impact(
+    num_children: int,
+    children_ages: list[int],
+    year: int,
+    net_earnings: float = 0.0,
+    has_housing_element: bool = True,
+) -> float:
+    """Calculate the impact of removing the two-child limit on UC child element.
+
+    The Autumn Budget 2025 abolishes the two-child limit from April 2026.
+    This function calculates how much additional UC child element a family gains,
+    accounting for UC income tapering.
+
+    UC is means-tested: benefits are reduced by 55% for each £1 of net earnings
+    above the work allowance. If income is high enough, UC can taper to zero.
+
+    Args:
+        num_children: Total number of children in household
+        children_ages: List of ages for each child
+        year: Tax year (e.g., 2025 for 2025-26)
+        net_earnings: Annual net earnings (after tax/NI) for UC taper calculation
+        has_housing_element: Whether household receives UC housing element (affects work allowance)
+
+    Returns:
+        Annual impact in £ (positive = benefit from limit removal)
+        Returns 0 for families with 2 or fewer eligible children
+        Returns reduced amount if income tapers the benefit
+    """
+    if num_children == 0 or len(children_ages) == 0:
+        return 0.0
+
+    # Filter to eligible children (under 19)
+    # UC rules: children under 16, or under 20 if in approved education
+    # Simplified: we use age < 19 as the cutoff
+    eligible_children = sum(1 for age in children_ages if age < UC_CHILD_ELEMENT_MAX_AGE + 1)
+
+    # No impact if 2 or fewer eligible children
+    if eligible_children <= UC_TWO_CHILD_LIMIT:
+        return 0.0
+
+    # Impact = additional children beyond 2 * annual child element amount
+    additional_children = eligible_children - UC_TWO_CHILD_LIMIT
+
+    # Get the uprated child element and work allowance for the target year
+    # UC benefits and thresholds are uprated by CPI each April
+    if year <= 2025:
+        child_element = UC_CHILD_ELEMENT_ANNUAL_2025
+        work_allowance = UC_WORK_ALLOWANCE_WITH_HOUSING_2025 if has_housing_element else UC_WORK_ALLOWANCE_NO_HOUSING_2025
+    else:
+        # Apply CPI uprating from 2025 to target year
+        cpi_factor = get_cumulative_inflation(2025, year, use_rpi=False)
+        child_element = UC_CHILD_ELEMENT_ANNUAL_2025 * cpi_factor
+        base_allowance = UC_WORK_ALLOWANCE_WITH_HOUSING_2025 if has_housing_element else UC_WORK_ALLOWANCE_NO_HOUSING_2025
+        work_allowance = base_allowance * cpi_factor
+
+    # Calculate maximum child element impact (before tapering)
+    max_impact = additional_children * child_element
+
+    # Apply UC taper if earnings are above work allowance
+    # The taper reduces UC by 55p for every £1 of net earnings above the work allowance
+    if net_earnings > work_allowance:
+        taper_reduction = (net_earnings - work_allowance) * UC_TAPER_RATE
+        # The additional child element from limit abolition is tapered like other UC
+        impact_after_taper = max(0.0, max_impact - taper_reduction)
+        return impact_after_taper
+
+    return max_impact
+
+
 # Earnings growth plateaus at peak (no decline approaching retirement)
 EARNINGS_GROWTH_BY_AGE = {
     22: 1.00, 23: 1.05, 24: 1.10, 25: 1.16, 26: 1.22, 27: 1.28, 28: 1.35,
@@ -141,6 +233,8 @@ class ModelInputs(BaseModel):
     property_income_per_year: float = 3_000
     petrol_spending_per_year: float = 1_500
     additional_income_growth_rate: float = 0.01
+    # Children ages in 2025 (for two-child limit impact calculation)
+    children_ages: list[int] = []
 
 
 def get_cpi(year: int) -> float:
@@ -606,6 +700,25 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         else:
             impact_salary_sacrifice_cap = 0
 
+        # Two-child limit abolition impact (takes effect April 2026)
+        # Calculate children ages for this year (they age each year from 2025)
+        years_from_input = current_year - input_year
+        children_ages_this_year = [age_2025 + years_from_input for age_2025 in inputs.children_ages]
+        num_children = len(children_ages_this_year)
+
+        # Only calculate impact if there are children and we're in 2026+ (when limit is abolished)
+        if num_children > 0 and current_year >= UC_TWO_CHILD_LIMIT_END_YEAR:
+            # Calculate net earnings for UC taper (employment income minus tax and NI)
+            # Note: UC taper applies to net earnings from employment, not total income
+            net_earnings_for_uc = max(0, employment_income - reform["income_tax"] - ni)
+            impact_two_child_limit = calculate_uc_child_element_impact(
+                num_children, children_ages_this_year, current_year,
+                net_earnings=net_earnings_for_uc,
+                has_housing_element=True,  # Conservative assumption (lower work allowance)
+            )
+        else:
+            impact_two_child_limit = 0
+
         results.append({
             "age": age,
             "year": current_year,
@@ -616,7 +729,7 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "national_insurance": round(ni),
             "student_loan_payment": round(reform["sl_payment"]),
             "student_loan_debt_remaining": round(reform_debt),
-            "num_children": 0,
+            "num_children": num_children,
             "baseline_net_income": round(baseline_net),
             "impact_rail_fare_freeze": round(impact_rail_freeze),
             "impact_fuel_duty_freeze": round(impact_fuel_freeze),
@@ -624,6 +737,7 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "impact_unearned_income_tax": round(impact_unearned_tax),
             "impact_salary_sacrifice_cap": round(impact_salary_sacrifice_cap),
             "impact_sl_threshold_freeze": round(impact_sl_freeze),
+            "impact_two_child_limit": round(impact_two_child_limit),
             # Baseline scenario thresholds
             "baseline_pa": round(baseline["pa"]),
             "baseline_basic_threshold": round(baseline["basic_threshold"]),
