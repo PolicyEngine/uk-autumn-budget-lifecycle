@@ -1237,98 +1237,55 @@
             const baselineBands = calcBands(baselineEffectivePA, row.baseline_basic_threshold, row.baseline_additional_threshold);
             const reformBands = calcBands(reformEffectivePA, row.reform_basic_threshold, row.reform_additional_threshold);
 
-            // Policy parameters table (thresholds affected by freeze)
-            // Note: PA taper threshold (£100k) is NOT included - it's never uprated per PolicyEngine-UK
-            const paramRows = [
-                {
-                    label: 'Personal Allowance',
-                    preAB: row.baseline_pa,
-                    postAB: row.reform_pa,
-                },
-                {
-                    label: 'Basic rate threshold',
-                    preAB: row.baseline_basic_threshold,
-                    postAB: row.reform_basic_threshold,
-                },
-                {
-                    label: 'Additional rate threshold',
-                    preAB: row.baseline_additional_threshold,
-                    postAB: row.reform_additional_threshold,
-                },
-            ];
-
-            // Calculated variables table
-            const calcRows = [
-                {
-                    label: 'Effective Personal Allowance',
-                    preAB: baselineEffectivePA,
-                    postAB: reformEffectivePA,
-                    note: income > row.baseline_taper_threshold ? `(PA − 50% of income over £100k; differs because underlying PA differs)` : ''
-                },
-                {
-                    label: 'Income taxed at 0%',
-                    preAB: baselineBands.taxFree,
-                    postAB: reformBands.taxFree,
-                },
-                {
-                    label: 'Income taxed at 20%',
-                    preAB: baselineBands.basicBand,
-                    postAB: reformBands.basicBand,
-                },
-                {
-                    label: 'Income taxed at 40%',
-                    preAB: baselineBands.higherBand,
-                    postAB: reformBands.higherBand,
-                },
-                {
-                    label: 'Income taxed at 45%',
-                    preAB: baselineBands.additionalBand,
-                    postAB: reformBands.additionalBand,
-                },
+            // Combined rows with section headers
+            const allRows = [
+                { section: 'Policy parameters (affected by freeze)' },
+                { label: 'Personal allowance', preAB: row.baseline_pa, postAB: row.reform_pa },
+                { label: 'Basic rate threshold', preAB: row.baseline_basic_threshold, postAB: row.reform_basic_threshold },
+                { label: 'Additional rate threshold', preAB: row.baseline_additional_threshold, postAB: row.reform_additional_threshold },
+                { section: 'Tax calculation' },
+                { label: 'Effective personal allowance', preAB: baselineEffectivePA, postAB: reformEffectivePA, note: income > row.baseline_taper_threshold ? `(PA − 50% of income over £100k)` : '' },
+                { label: 'Income taxed at 0%', preAB: baselineBands.taxFree, postAB: reformBands.taxFree },
+                { label: 'Income taxed at 20%', preAB: baselineBands.basicBand, postAB: reformBands.basicBand },
+                { label: 'Income taxed at 40%', preAB: baselineBands.higherBand, postAB: reformBands.higherBand },
+                { label: 'Income taxed at 45%', preAB: baselineBands.additionalBand, postAB: reformBands.additionalBand },
                 { separator: true },
-                {
-                    label: 'Total income tax',
-                    preAB: baselineBands.tax,
-                    postAB: reformBands.tax,
-                    highlight: true
-                },
+                { label: 'Total income tax', preAB: baselineBands.tax, postAB: reformBands.tax, highlight: true },
             ];
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
 
-                rows.forEach(r => {
-                    if (r.separator) {
-                        html += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                    } else {
-                        const diff = r.postAB - r.preAB;
-                        const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                        html += `
-                            <tr style="${rowStyle}">
-                                <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}${r.note ? `<br><span style="font-size: 0.75rem; color: #94a3b8;">${r.note}</span>` : ''}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
-                                <td style="${tdStyle}">${formatDiff(diff)}</td>
-                            </tr>
-                        `;
-                    }
-                });
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else {
+                    const diff = r.postAB - r.preAB;
+                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
+                    tableHtml += `
+                        <tr style="${rowStyle}">
+                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}${r.note ? `<br><span style="font-size: 0.75rem; color: #94a3b8;">${r.note}</span>` : ''}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
+                            <td style="${tdStyle}">${formatDiff(diff)}</td>
+                        </tr>
+                    `;
+                }
+            });
 
-                html += `</tbody></table>`;
-                return html;
-            };
+            tableHtml += `</tbody></table>`;
 
             let html = `
                 <div style="padding: 20px;">
@@ -1338,8 +1295,7 @@
                             <span style="color: #64748b; margin-left: 12px;">Gross income: £${d3.format(',.0f')(income)}</span>
                         </div>
                     </div>
-                    ${renderTable(paramRows, 'Policy Parameters (affected by freeze)')}
-                    ${renderTable(calcRows, 'Tax Calculation')}
+                    ${tableHtml}
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> Pre-AB, PA/basic/additional thresholds would rise with CPI from 2028. Post-AB, they remain frozen until 2030-31, then rise with CPI. The PA taper threshold (£100k) is never uprated - it's been fixed since 2009.
                     </div>
@@ -1402,55 +1358,44 @@
             const rpi = getRpi(year);
             const interestRate = Math.min(rpi + 0.03, 0.071);
 
-            // Policy parameters table
-            const paramRows = [
-                {
-                    label: 'Repayment threshold',
-                    preAB: baselineThreshold,
-                    postAB: reformThreshold,
-                },
+            // Combined rows with section headers
+            const allRows = [
+                { section: 'Policy parameters (affected by freeze)' },
+                { label: 'Repayment threshold', preAB: baselineThreshold, postAB: reformThreshold },
+                { section: 'Repayment calculation' },
+                { label: 'Income above threshold', preAB: Math.max(0, income - baselineThreshold), postAB: Math.max(0, income - reformThreshold) },
+                { label: 'Annual repayment (9%)', preAB: baselineRepayment, postAB: reformRepayment, highlight: true },
+                { section: 'Debt evolution this year' },
+                { label: 'Debt at start of year', preAB: prevBaselineDebt, postAB: prevReformDebt },
+                { label: '− Repayment', preAB: baselineRepayment, postAB: reformRepayment },
+                { label: '= After repayment', preAB: Math.max(0, prevBaselineDebt - baselineRepayment), postAB: Math.max(0, prevReformDebt - reformRepayment) },
+                { label: `+ Interest (${(interestRate * 100).toFixed(1)}%)`, preAB: Math.max(0, prevBaselineDebt - baselineRepayment) * interestRate, postAB: Math.max(0, prevReformDebt - reformRepayment) * interestRate },
+                { separator: true },
+                { label: '= Debt at end of year', preAB: baselineDebt, postAB: reformDebt, highlight: true },
             ];
 
-            // Calculated variables table
-            const calcRows = [
-                {
-                    label: 'Income above threshold',
-                    preAB: Math.max(0, income - baselineThreshold),
-                    postAB: Math.max(0, income - reformThreshold),
-                },
-                {
-                    label: 'Annual repayment (9%)',
-                    preAB: baselineRepayment,
-                    postAB: reformRepayment,
-                    highlight: true
-                },
-            ];
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <colgroup>
-                            <col style="width: 40%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                rows.forEach(r => {
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else {
                     const diff = r.postAB - r.preAB;
                     const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                    html += `
+                    tableHtml += `
                         <tr style="${rowStyle}">
                             <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
                             <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
@@ -1458,11 +1403,11 @@
                             <td style="${tdStyle}">${formatDiff(diff)}</td>
                         </tr>
                     `;
-                });
+                }
+            });
 
-                html += `</tbody></table>`;
-                return html;
-            };
+            tableHtml += `</tbody></table>`;
+            tableHtml += `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 8px;">Interest = RPI (${(rpi * 100).toFixed(1)}%) + 3% = ${((rpi + 0.03) * 100).toFixed(1)}%${rpi + 0.03 > 0.071 ? ' (capped at 7.1%)' : ''}</div>`;
 
             let html = `
                 <div style="padding: 20px;">
@@ -1474,59 +1419,7 @@
                             ${forgiven ? '<span style="color: #22c55e; margin-left: 12px; font-weight: 500;">✓ Debt forgiven</span>' : ''}
                         </div>
                     </div>
-                    ${renderTable(paramRows, 'Policy Parameters (affected by freeze)')}
-                    ${renderTable(calcRows, 'Repayment Calculation')}
-
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 24px 0 12px 0;">Debt Evolution This Year</h4>
-                    <table style="${tableStyle}">
-                        <colgroup>
-                            <col style="width: 40%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Step</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style="${labelStyle}">Debt at start of year</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(prevBaselineDebt)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(prevReformDebt)}</td>
-                                <td style="${tdStyle}">${formatDiff(prevReformDebt - prevBaselineDebt)}</td>
-                            </tr>
-                            <tr>
-                                <td style="${labelStyle}">− Repayment</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(baselineRepayment)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(reformRepayment)}</td>
-                                <td style="${tdStyle}">${formatDiff(reformRepayment - baselineRepayment)}</td>
-                            </tr>
-                            <tr>
-                                <td style="${labelStyle}">= After repayment</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(Math.max(0, prevBaselineDebt - baselineRepayment))}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(Math.max(0, prevReformDebt - reformRepayment))}</td>
-                                <td style="${tdStyle}">${formatDiff((prevReformDebt - reformRepayment) - (prevBaselineDebt - baselineRepayment))}</td>
-                            </tr>
-                            <tr>
-                                <td style="${labelStyle}">+ Interest (${(interestRate * 100).toFixed(1)}%)</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(Math.max(0, prevBaselineDebt - baselineRepayment) * interestRate)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(Math.max(0, prevReformDebt - reformRepayment) * interestRate)}</td>
-                                <td style="${tdStyle}">${formatDiff(((prevReformDebt - reformRepayment) - (prevBaselineDebt - baselineRepayment)) * interestRate)}</td>
-                            </tr>
-                            <tr style="background: #f8fafc;">
-                                <td style="${labelStyle}; font-weight: 600; color: #1e293b;">= Debt at end of year</td>
-                                <td style="${tdStyle}; font-weight: 600;">£${d3.format(',.0f')(baselineDebt)}</td>
-                                <td style="${tdStyle}; font-weight: 600;">£${d3.format(',.0f')(reformDebt)}</td>
-                                <td style="${tdStyle}; font-weight: 600;">${formatDiff(reformDebt - baselineDebt)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 8px;">Interest = RPI (${(rpi * 100).toFixed(1)}%) + 3% = ${((rpi + 0.03) * 100).toFixed(1)}%${rpi + 0.03 > 0.071 ? ' (capped at 7.1%)' : ''}</div>
+                    ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> Repayment = 9% × (income − threshold). Pre-AB, threshold rises with RPI. Post-AB, threshold frozen at £27,295 until 2030. Higher repayments under Post-AB mean faster debt payoff but less disposable income.
@@ -1628,76 +1521,64 @@
             const postAB_NI = calcNI(postAB_taxableIncome);
             const postAB_totalPension = postAB_ssRemaining + postAB_employeePension;
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <colgroup>
-                            <col style="width: 40%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                            <col style="width: 20%;">
-                        </colgroup>
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
+            // Calculate net impact
+            const preAB_takeHome = preSSSalary - preAB_IT - preAB_NI - salarySacrifice;
+            const postAB_takeHome = postAB_adjustedSalary - postAB_IT - postAB_NI - postAB_totalPension;
 
-                rows.forEach(r => {
-                    if (r.separator) {
-                        html += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                    } else {
-                        const diff = r.postAB - r.preAB;
-                        const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                        html += `
-                            <tr style="${rowStyle}">
-                                <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
-                                <td style="${tdStyle}">${r.noFormat ? '' : formatDiff(diff)}</td>
-                            </tr>
-                        `;
-                    }
-                });
-
-                html += `</tbody></table>`;
-                return html;
-            };
-
-            const incomeRows = [
+            // Combined rows with section headers
+            const allRows = [
+                { section: 'Income breakdown' },
                 { label: 'Salary (before any pension)', preAB: preSSSalary, postAB: preSSSalary, noFormat: true },
                 { label: '− Employer NI haircut (0.16%)', preAB: 0, postAB: haircutAmount },
                 { label: '− Salary sacrifice (employer pension)', preAB: salarySacrifice, postAB: postAB_ssRemaining },
                 { separator: true },
                 { label: '= Taxable employment income', preAB: preAB_taxableIncome, postAB: postAB_taxableIncome },
-            ];
-
-            const pensionRows = [
+                { section: 'Pension contributions' },
                 { label: 'Employer pension (salary sacrifice)', preAB: salarySacrifice, postAB: postAB_ssRemaining },
                 { label: 'Employee pension contribution', preAB: 0, postAB: postAB_employeePension },
                 { separator: true },
                 { label: '= Total pension contribution', preAB: preAB_totalPension, postAB: postAB_totalPension, noFormat: true },
-            ];
-
-            const taxRows = [
+                { section: 'Tax & NI' },
                 { label: 'Income tax (after pension relief)', preAB: preAB_IT, postAB: postAB_IT },
                 { label: 'Employee NI', preAB: preAB_NI, postAB: postAB_NI, highlight: true },
-            ];
-
-            // Calculate net impact
-            const preAB_takeHome = preSSSalary - preAB_IT - preAB_NI - salarySacrifice;
-            const postAB_takeHome = postAB_adjustedSalary - postAB_IT - postAB_NI - postAB_totalPension;
-
-            const summaryRows = [
+                { section: 'Summary' },
                 { label: 'Take-home pay', preAB: preAB_takeHome, postAB: postAB_takeHome, highlight: true },
                 { label: 'Total pension contribution', preAB: preAB_totalPension, postAB: postAB_totalPension },
             ];
+
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else {
+                    const diff = r.postAB - r.preAB;
+                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
+                    tableHtml += `
+                        <tr style="${rowStyle}">
+                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
+                            <td style="${tdStyle}">${r.noFormat ? '' : formatDiff(diff)}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
 
             let html = `
                 <div style="padding: 20px;">
@@ -1709,10 +1590,7 @@
                         </div>
                     </div>
 
-                    ${renderTable(incomeRows, 'Income Breakdown')}
-                    ${renderTable(pensionRows, 'Pension Contributions')}
-                    ${renderTable(taxRows, 'Tax & NI')}
-                    ${renderTable(summaryRows, 'Summary')}
+                    ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> Pre-AB, all pension via salary sacrifice avoids income tax and NI. Post-AB (from April 2029), only the first £2,000 can use salary sacrifice. Excess above £2,000 becomes taxable employment income and employee pension contribution. You still get income tax relief on the employee contribution, but employee NI is now charged. Employers spread their new NI costs (£2.1bn economy-wide) across all workers as a 0.16% salary reduction.
@@ -1756,70 +1634,68 @@
             const fareIncreaseSaved = isFreezeYear ? railSpending * RPI_2025 : 0;
             const impact = row.impact_rail_fare_freeze;
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                rows.forEach(r => {
-                    if (r.separator) {
-                        html += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                    } else if (r.isText) {
-                        html += `
-                            <tr>
-                                <td style="${labelStyle}">${r.label}</td>
-                                <td style="${tdStyle}">${r.preAB}</td>
-                                <td style="${tdStyle}">${r.postAB}</td>
-                                <td style="${tdStyle}">-</td>
-                            </tr>
-                        `;
-                    } else {
-                        const diff = r.postAB - r.preAB;
-                        const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                        html += `
-                            <tr style="${rowStyle}">
-                                <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
-                                <td style="${tdStyle}">${formatDiff(diff)}</td>
-                            </tr>
-                        `;
-                    }
-                });
-
-                html += `</tbody></table>`;
-                return html;
-            };
-
-            const policyRows = [
-                { label: 'Your annual rail spending', preAB: railSpending, postAB: railSpending },
-                { label: 'RPI inflation (2025)', preAB: `${(RPI_2025 * 100).toFixed(1)}%`, postAB: `${(RPI_2025 * 100).toFixed(1)}%`, isText: true },
-                { label: 'Fare increase in 2026', preAB: fareIncreaseSaved, postAB: 0 },
-            ];
-
-            const summaryRows = [
-                { label: 'Annual saving from freeze', preAB: 0, postAB: impact },
-            ];
-
             const freezeStatus = isFreezeYear ?
                 '<span style="color: #059669; font-weight: 600;">✓ Freeze active this year</span>' :
                 '<span style="color: #64748b;">Freeze was in 2026 only</span>';
+
+            // Combined rows with section headers
+            const allRows = [
+                { section: 'Rail fare impact' },
+                { label: 'Your annual rail spending', preAB: railSpending, postAB: railSpending },
+                { label: 'RPI inflation (2025)', preAB: `${(RPI_2025 * 100).toFixed(1)}%`, postAB: `${(RPI_2025 * 100).toFixed(1)}%`, isText: true },
+                { label: 'Fare increase in 2026', preAB: fareIncreaseSaved, postAB: 0 },
+                { section: 'Summary' },
+                { label: 'Annual saving from freeze', preAB: 0, postAB: impact, highlight: true },
+            ];
+
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else if (r.isText) {
+                    tableHtml += `
+                        <tr>
+                            <td style="${labelStyle}">${r.label}</td>
+                            <td style="${tdStyle}">${r.preAB}</td>
+                            <td style="${tdStyle}">${r.postAB}</td>
+                            <td style="${tdStyle}">-</td>
+                        </tr>
+                    `;
+                } else {
+                    const diff = r.postAB - r.preAB;
+                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
+                    tableHtml += `
+                        <tr style="${rowStyle}">
+                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
+                            <td style="${tdStyle}">${formatDiff(diff)}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
 
             const html = `
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Rail Fare Freeze (${year})</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Rail fare freeze (${year})</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">One-year freeze on rail fares in 2026</div>
                         </div>
                         <div style="text-align: right;">
@@ -1827,8 +1703,7 @@
                         </div>
                     </div>
 
-                    ${renderTable(policyRows, 'Rail Fare Impact')}
-                    ${renderTable(summaryRows, 'Summary')}
+                    ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> The government froze regulated rail fares in 2026, meaning fares did not rise with the 4.16% RPI inflation that year. This is a one-year policy, so impacts are only seen in 2026.
@@ -1887,77 +1762,71 @@
 
             const impact = row.impact_fuel_duty_freeze;
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                rows.forEach(r => {
-                    if (r.separator) {
-                        html += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                    } else if (r.isText) {
-                        html += `
-                            <tr>
-                                <td style="${labelStyle}">${r.label}</td>
-                                <td style="${tdStyle}">${r.preAB}</td>
-                                <td style="${tdStyle}">${r.postAB}</td>
-                                <td style="${tdStyle}">-</td>
-                            </tr>
-                        `;
-                    } else {
-                        const diff = r.postAB - r.preAB;
-                        const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                        html += `
-                            <tr style="${rowStyle}">
-                                <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
-                                <td style="${tdStyle}">${formatDiff(diff)}</td>
-                            </tr>
-                        `;
-                    }
-                });
-
-                html += `</tbody></table>`;
-                return html;
-            };
-
-            const fuelRows = [
+            // Combined rows with section headers
+            const allRows = [
+                { section: 'Fuel consumption' },
                 { label: 'Your annual petrol spending', preAB: petrolSpending, postAB: petrolSpending },
                 { label: 'Estimated litres purchased', preAB: litres.toFixed(0), postAB: litres.toFixed(0), isText: true },
-            ];
-
-            const dutyRows = [
+                { section: 'Fuel duty rates' },
                 { label: 'Fuel duty rate (p/litre)', preAB: UNFROZEN_RATE.toFixed(2) + 'p', postAB: reformRate.toFixed(2) + 'p', isText: true },
                 { label: 'Total duty paid', preAB: dutyUnfrozen, postAB: dutyReform },
+                { section: 'Summary' },
+                { label: 'Annual saving from lower duty', preAB: 0, postAB: impact, highlight: true },
             ];
 
-            const summaryRows = [
-                { label: 'Annual saving from lower duty', preAB: 0, postAB: impact },
-            ];
+            let tableHtml = `
+                <table style="${tableStyle}">
+                    <thead>
+                        <tr>
+                            <th style="${thStyle} text-align: left; width: 50%;">Item</th>
+                            <th style="${thStyle} width: 16.67%;">Pre-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Post-AB</th>
+                            <th style="${thStyle} width: 16.67%;">Difference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            allRows.forEach(r => {
+                if (r.section) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 12px 8px 6px; font-weight: 600; font-size: 0.85rem; color: #475569; background: #f8fafc;">${r.section}</td></tr>`;
+                } else if (r.separator) {
+                    tableHtml += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
+                } else if (r.isText) {
+                    tableHtml += `
+                        <tr>
+                            <td style="${labelStyle}">${r.label}</td>
+                            <td style="${tdStyle}">${r.preAB}</td>
+                            <td style="${tdStyle}">${r.postAB}</td>
+                            <td style="${tdStyle}">-</td>
+                        </tr>
+                    `;
+                } else {
+                    const diff = r.postAB - r.preAB;
+                    const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
+                    tableHtml += `
+                        <tr style="${rowStyle}">
+                            <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
+                            <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
+                            <td style="${tdStyle}">${formatDiff(diff)}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            tableHtml += `</tbody></table>`;
 
             const html = `
                 <div style="font-size: 0.95rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Fuel Duty Reform (${year})</div>
+                            <div style="font-size: 1.1rem; font-weight: 600; color: #334155;">Fuel duty reform (${year})</div>
                             <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">${rateDescription}</div>
                         </div>
                     </div>
 
-                    ${renderTable(fuelRows, 'Fuel Consumption')}
-                    ${renderTable(dutyRows, 'Fuel Duty Rates')}
-                    ${renderTable(summaryRows, 'Summary')}
+                    ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
                         <strong>How it works:</strong> The government extended the 5p fuel duty cut to August 2026, then phased in increases. Compared to an unfrozen baseline of 58p/litre, this results in lower duty payments. The saving depends on how much you drive.
@@ -1987,9 +1856,20 @@
             const propertyIncome = parseFloat(document.getElementById('property_income_per_year').value);
             const grossIncome = row.gross_income;
 
-            // Determine rate band
+            // Personal allowance calculation
+            const PERSONAL_ALLOWANCE = 12570;
+            const totalUnearned = dividends + savingsInterest + propertyIncome;
+
+            // Remaining PA after earned income
+            const remainingPA = Math.max(0, PERSONAL_ALLOWANCE - grossIncome);
+
+            // If PA covers all unearned income, no tax
+            const paCoversAll = remainingPA >= totalUnearned;
+
+            // Determine rate band based on total income
             const BASIC_THRESHOLD = 50270;
-            const isHigherRate = grossIncome > BASIC_THRESHOLD;
+            const totalIncome = grossIncome + totalUnearned;
+            const isHigherRate = totalIncome > BASIC_THRESHOLD;
 
             const DIVIDEND_ALLOWANCE = 500;
             const SAVINGS_ALLOWANCE = isHigherRate ? 500 : 1000;
@@ -1998,10 +1878,22 @@
             const savingsRate = isHigherRate ? 0.40 : 0.20;
             const propertyRate = isHigherRate ? 0.40 : 0.20;
 
-            // Calculate taxable amounts
-            const taxableDividends = Math.max(0, dividends - DIVIDEND_ALLOWANCE);
-            const taxableSavings = Math.max(0, savingsInterest - SAVINGS_ALLOWANCE);
-            const taxableProperty = propertyIncome;  // No allowance for simplicity
+            // Apply remaining PA to unearned income (savings first, then dividends, then property)
+            let paUsed = 0;
+
+            // Savings interest (uses PA first)
+            const savingsAfterPA = Math.max(0, savingsInterest - Math.max(0, remainingPA - paUsed));
+            paUsed += Math.min(savingsInterest, Math.max(0, remainingPA - paUsed));
+            const taxableSavings = Math.max(0, savingsAfterPA - SAVINGS_ALLOWANCE);
+
+            // Dividends (uses remaining PA)
+            const dividendsAfterPA = Math.max(0, dividends - Math.max(0, remainingPA - paUsed));
+            paUsed += Math.min(dividends, Math.max(0, remainingPA - paUsed));
+            const taxableDividends = Math.max(0, dividendsAfterPA - DIVIDEND_ALLOWANCE);
+
+            // Property income (uses any remaining PA)
+            const propertyAfterPA = Math.max(0, propertyIncome - Math.max(0, remainingPA - paUsed));
+            const taxableProperty = propertyAfterPA;
 
             // Calculate tax
             const dividendTax = taxableDividends * dividendRate;
@@ -2011,68 +1903,28 @@
 
             // Post-AB: 5% increase
             const totalTaxPostAB = totalTax * 1.05;
-            const increase = totalTaxPostAB - totalTax;
 
             const impact = row.impact_unearned_income_tax;
 
-            const renderTable = (rows, title) => {
-                let html = `
-                    <h4 style="font-size: 0.9rem; font-weight: 600; color: #1e293b; margin: 16px 0 12px 0;">${title}</h4>
-                    <table style="${tableStyle}">
-                        <thead>
-                            <tr>
-                                <th style="${thStyle} text-align: left;">Item</th>
-                                <th style="${thStyle}">Pre-AB</th>
-                                <th style="${thStyle}">Post-AB</th>
-                                <th style="${thStyle}">Difference</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                rows.forEach(r => {
-                    if (r.separator) {
-                        html += `<tr><td colspan="4" style="padding: 4px;"></td></tr>`;
-                    } else if (r.isText) {
-                        html += `
-                            <tr>
-                                <td style="${labelStyle}">${r.label}</td>
-                                <td style="${tdStyle}">${r.preAB}</td>
-                                <td style="${tdStyle}">${r.postAB}</td>
-                                <td style="${tdStyle}">-</td>
-                            </tr>
-                        `;
-                    } else {
-                        const diff = r.postAB - r.preAB;
-                        const rowStyle = r.highlight ? 'background: #fef2f2;' : '';
-                        html += `
-                            <tr style="${rowStyle}">
-                                <td style="${labelStyle} ${r.highlight ? 'font-weight: 600; color: #1e293b;' : ''}">${r.label}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.preAB)}</td>
-                                <td style="${tdStyle}">£${d3.format(',.0f')(r.postAB)}</td>
-                                <td style="${tdStyle}">${formatDiff(diff)}</td>
-                            </tr>
-                        `;
-                    }
-                });
-
-                html += `</tbody></table>`;
-                return html;
-            };
-
             const allRows = [
-                { section: 'Your unearned income' },
-                { label: 'Dividend income', preAB: dividends, postAB: dividends },
+                { section: 'Your income' },
+                { label: 'Earned income (employment/pension)', preAB: grossIncome, postAB: grossIncome },
+                { label: 'Personal allowance', preAB: PERSONAL_ALLOWANCE, postAB: PERSONAL_ALLOWANCE },
+                { label: 'Remaining PA for unearned income', preAB: remainingPA, postAB: remainingPA },
+                { section: 'Unearned income' },
                 { label: 'Savings interest', preAB: savingsInterest, postAB: savingsInterest },
+                { label: 'Dividend income', preAB: dividends, postAB: dividends },
                 { label: 'Property income', preAB: propertyIncome, postAB: propertyIncome },
-                { section: 'Allowances & rate band' },
-                { label: 'Dividend allowance', preAB: DIVIDEND_ALLOWANCE, postAB: DIVIDEND_ALLOWANCE },
-                { label: 'Savings allowance', preAB: SAVINGS_ALLOWANCE, postAB: SAVINGS_ALLOWANCE },
-                { label: 'Rate band', preAB: isHigherRate ? 'Higher rate' : 'Basic rate', postAB: isHigherRate ? 'Higher rate' : 'Basic rate', isText: true },
+                { label: 'Total unearned', preAB: totalUnearned, postAB: totalUnearned },
+                { section: 'Taxable amounts (after PA & allowances)' },
+                { label: 'Taxable savings (after PA & £' + SAVINGS_ALLOWANCE + ' allowance)', preAB: taxableSavings, postAB: taxableSavings },
+                { label: 'Taxable dividends (after PA & £' + DIVIDEND_ALLOWANCE + ' allowance)', preAB: taxableDividends, postAB: taxableDividends },
+                { label: 'Taxable property (after PA)', preAB: taxableProperty, postAB: taxableProperty },
                 { section: 'Tax calculation' },
-                { label: 'Tax on dividends', preAB: dividendTax, postAB: dividendTax * 1.05 },
-                { label: 'Tax on savings', preAB: savingsTax, postAB: savingsTax * 1.05 },
-                { label: 'Tax on property', preAB: propertyTax, postAB: propertyTax * 1.05 },
+                { label: 'Rate band', preAB: isHigherRate ? 'Higher rate' : 'Basic rate', postAB: isHigherRate ? 'Higher rate' : 'Basic rate', isText: true },
+                { label: 'Tax on savings (' + (savingsRate * 100) + '%)', preAB: savingsTax, postAB: savingsTax * 1.05 },
+                { label: 'Tax on dividends (' + (dividendRate * 100).toFixed(2) + '%)', preAB: dividendTax, postAB: dividendTax * 1.05 },
+                { label: 'Tax on property (' + (propertyRate * 100) + '%)', preAB: propertyTax, postAB: propertyTax * 1.05 },
                 { separator: true },
                 { label: 'Total unearned income tax', preAB: totalTax, postAB: totalTaxPostAB, highlight: true },
             ];
@@ -2132,7 +1984,7 @@
                     ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> The Autumn Budget increased taxes on unearned income (dividends, savings interest, property income) by 5%. Tax is calculated after applying allowances (£${DIVIDEND_ALLOWANCE} dividend, £${SAVINGS_ALLOWANCE} savings at your income level). ${isHigherRate ? 'As a higher-rate taxpayer, you pay higher rates on this income.' : 'As a basic-rate taxpayer, you pay lower rates on this income.'}
+                        <strong>How it works:</strong> The Autumn Budget increased taxes on unearned income by 5%. Your £12,570 personal allowance is first used by earned income; any remainder shelters unearned income. ${remainingPA > 0 ? `With £${d3.format(',.0f')(grossIncome)} earned income, you have £${d3.format(',.0f')(remainingPA)} PA remaining for unearned income.` : 'Your earned income uses all your PA, so all unearned income is taxable.'} After PA, savings and dividend allowances (£${SAVINGS_ALLOWANCE}/£${DIVIDEND_ALLOWANCE}) further reduce taxable amounts.
                     </div>
                 </div>
             `;
