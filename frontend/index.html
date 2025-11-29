@@ -992,7 +992,8 @@
                     .attr('class', 'zero-line')
                     .attr('x1', 0).attr('x2', width)
                     .attr('y1', y(0)).attr('y2', y(0))
-                    .attr('stroke', '#ccc');
+                    .attr('stroke', '#333')
+                    .attr('stroke-width', 2);
 
                 const ageGroups = chartG.selectAll('.age-group')
                     .data(stackedData, d => d.age)
