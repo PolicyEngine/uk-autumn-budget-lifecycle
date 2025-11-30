@@ -285,12 +285,18 @@ class TestIncomeTapering:
         # UC should be fully tapered to zero
         assert result == 0
 
-    def test_medium_income_gets_partial_benefit(self):
-        """Medium income gets partial benefit due to taper."""
+    def test_medium_income_gets_full_benefit(self):
+        """Medium income still gets full benefit - taper applies to total UC.
+
+        KEY INSIGHT from policyengine-uk: The UC taper applies to TOTAL UC, not
+        specifically to the child element. The impact of removing the 2-child limit
+        equals the full child element amount UNTIL total UC with the limit would
+        be zero. At moderate incomes (~£6,848), total UC (~£11,829) is still positive
+        after taper, so the impact remains the full ~£3,514.
+        """
         from main import (
             calculate_uc_child_element_impact,
             UC_WORK_ALLOWANCE_WITH_HOUSING_2025,
-            UC_TAPER_RATE,
             UC_CHILD_ELEMENT_ANNUAL_2025
         )
 
@@ -303,38 +309,64 @@ class TestIncomeTapering:
             has_housing_element=True
         )
 
-        # Expected: full benefit minus taper
-        # Taper reduction = £2000 * 0.55 = £1100
-        expected_reduction = 2000 * UC_TAPER_RATE  # £1100
-        expected = UC_CHILD_ELEMENT_ANNUAL_2025 - expected_reduction  # ~£2,414
-
-        assert abs(result - expected) < 10
+        # At this income level, total UC with limit is still positive after taper
+        # so the impact is the FULL child element amount
+        assert 3400 < result < 3700  # Full ~£3,514
 
     def test_no_housing_element_higher_allowance(self):
-        """Without housing element, work allowance is higher (more benefit preserved)."""
+        """Without housing element, work allowance is higher - difference appears at high income.
+
+        At moderate incomes, both cases get full benefit because total UC hasn't
+        been fully tapered. The housing element work allowance only matters when
+        income is high enough to nearly taper out UC entirely.
+        """
         from main import (
             calculate_uc_child_element_impact,
             UC_WORK_ALLOWANCE_WITH_HOUSING_2025,
-            UC_WORK_ALLOWANCE_NO_HOUSING_2025
+            UC_WORK_ALLOWANCE_NO_HOUSING_2025,
+            UC_STANDARD_ALLOWANCE_SINGLE_PARENT_2025,
+            UC_CHILD_ELEMENT_ANNUAL_2025,
+            UC_TAPER_RATE
         )
 
-        # Same earnings, compare with/without housing element
-        net_earnings = 7000  # Above housing allowance, below no-housing allowance
+        # At £7k, both get full benefit (UC not fully tapered)
+        low_earnings = 7000
+        with_housing_low = calculate_uc_child_element_impact(
+            3, [7, 5, 3], 2025, net_earnings=low_earnings, has_housing_element=True
+        )
+        without_housing_low = calculate_uc_child_element_impact(
+            3, [7, 5, 3], 2025, net_earnings=low_earnings, has_housing_element=False
+        )
+        assert 3400 < with_housing_low < 3700  # Both get full benefit
+        assert 3400 < without_housing_low < 3700
 
-        with_housing = calculate_uc_child_element_impact(
-            3, [7, 5, 3], 2025,
-            net_earnings=net_earnings,
-            has_housing_element=True  # Lower work allowance
+        # At very high income where UC with limit is nearly/fully tapered, differences emerge.
+        # UC with limit = standard + 2*child = ~£11,829
+        # To fully taper (with housing): 4848 + (11829 / 0.55) = £26,355
+        # UC without limit = standard + 3*child = ~£15,343
+        # To fully taper (with housing): 4848 + (15343 / 0.55) = £32,744
+
+        # At £28k, UC with limit is fully tapered (£0), but without limit still positive
+        high_earnings = 28000
+
+        with_housing_high = calculate_uc_child_element_impact(
+            3, [7, 5, 3], 2025, net_earnings=high_earnings, has_housing_element=True
+        )
+        without_housing_high = calculate_uc_child_element_impact(
+            3, [7, 5, 3], 2025, net_earnings=high_earnings, has_housing_element=False
         )
 
-        without_housing = calculate_uc_child_element_impact(
-            3, [7, 5, 3], 2025,
-            net_earnings=net_earnings,
-            has_housing_element=False  # Higher work allowance
-        )
+        # With housing: income reduction = (28000 - 4848) * 0.55 = £12,733
+        # UC with limit = 0, UC without = 15343 - 12733 = £2,610 → impact = £2,610
+        # Without housing: income reduction = (28000 - 8076) * 0.55 = £10,958
+        # UC with limit = 11829 - 10958 = £871, UC without = 15343 - 10958 = £4,385
+        # Impact = 4385 - 871 = £3,514 (full child element!)
 
-        # Without housing should get MORE benefit (higher allowance threshold)
-        assert without_housing > with_housing
+        # At high income, without housing (higher work allowance) should preserve MORE impact
+        assert without_housing_high > with_housing_high
+        # Without housing still gets full benefit, with housing gets reduced
+        assert 3400 < without_housing_high < 3700  # Full benefit
+        assert with_housing_high < 3000  # Reduced benefit
 
     def test_income_taper_applies_to_uprated_values(self):
         """Work allowance should be uprated with CPI in future years."""
@@ -361,22 +393,34 @@ class TestIncomeTapering:
         assert benefit_2030 > benefit_2025
 
     def test_impact_can_decrease_year_over_year_if_income_rises(self):
-        """If income rises faster than CPI, UC impact can decrease YoY."""
+        """If income rises faster than CPI, UC impact can decrease YoY.
+
+        For the impact to decrease, income must be high enough to start
+        tapering UC with the limit toward zero. At that point, further
+        income increases reduce the remaining UC and thus the impact.
+        """
         from main import calculate_uc_child_element_impact, get_cumulative_inflation
 
-        # Low income in 2026 (just getting UC)
+        # In 2026, UC max with limit ~£12,195 (uprated). Work allowance ~£4,991.
+        # At £22k net earnings: taper = (22000 - 4991) * 0.55 = £9,355
+        # Remaining UC with limit = 12195 - 9355 = ~£2,840 (positive)
+        # Impact = full ~£3,622 (child element, uprated)
         benefit_2026 = calculate_uc_child_element_impact(
             3, [8, 6, 4], 2026,
-            net_earnings=10000,
+            net_earnings=22000,
             has_housing_element=True
         )
 
-        # Higher income in 2027 (income rose faster than CPI)
+        # In 2027, at £30k: taper = (30000 - 5091) * 0.55 = £13,700
+        # UC max with limit ~£12,439. Remaining = 12439 - 13700 = £0 (fully tapered)
+        # UC max without limit ~£16,132. Remaining = 16132 - 13700 = ~£2,432
+        # Impact = £2,432 (less than full child element)
         benefit_2027 = calculate_uc_child_element_impact(
-            3, [9, 7, 5], 2027,  # Same children, aged 1 year
-            net_earnings=20000,  # Income doubled (faster than CPI)
+            3, [9, 7, 5], 2027,
+            net_earnings=30000,  # Much higher income
             has_housing_element=True
         )
 
-        # With significantly higher income, benefit should decrease
-        assert benefit_2027 < benefit_2026
+        # 2026 should get full benefit, 2027 should get reduced benefit
+        assert 3500 < benefit_2026 < 3800  # Full uprated child element
+        assert benefit_2027 < benefit_2026  # Reduced due to high income

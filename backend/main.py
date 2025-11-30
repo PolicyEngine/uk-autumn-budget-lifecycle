@@ -129,6 +129,10 @@ UC_CHILD_ELEMENT_MAX_AGE = 18  # Children up to age 18 (or 19 if in approved edu
 UC_TWO_CHILD_LIMIT_END_YEAR = 2026  # Autumn Budget 2025 removes limit from April 2026
 UC_TWO_CHILD_LIMIT = 2  # Number of children covered before limit kicks in
 
+# UC standard allowance for single parent (most common UC claimant type with children)
+# Source: policyengine-uk gov.dwp.universal_credit.allowances.standard
+UC_STANDARD_ALLOWANCE_SINGLE_PARENT_2025 = 400.14 * 12  # £400.14/month = £4,801.68/year
+
 # UC income tapering parameters
 # Source: policyengine-uk parameters for 2025-26
 # https://github.com/PolicyEngine/policyengine-uk/tree/main/policyengine_uk/parameters/gov/dwp/universal_credit/means_test
@@ -156,6 +160,10 @@ def calculate_uc_child_element_impact(
     UC is means-tested: benefits are reduced by 55% for each £1 of net earnings
     above the work allowance. If income is high enough, UC can taper to zero.
 
+    IMPORTANT: The taper applies to TOTAL UC, not just the child element.
+    The impact of removing the 2-child limit remains the full child element amount
+    UNTIL total UC with the limit would be zero. Only then does the impact decrease.
+
     Args:
         num_children: Total number of children in household
         children_ages: List of ages for each child
@@ -166,7 +174,7 @@ def calculate_uc_child_element_impact(
     Returns:
         Annual impact in £ (positive = benefit from limit removal)
         Returns 0 for families with 2 or fewer eligible children
-        Returns reduced amount if income tapers the benefit
+        Returns reduced amount only if UC with limit is fully tapered to zero
     """
     if num_children == 0 or len(children_ages) == 0:
         return 0.0
@@ -180,33 +188,42 @@ def calculate_uc_child_element_impact(
     if eligible_children <= UC_TWO_CHILD_LIMIT:
         return 0.0
 
-    # Impact = additional children beyond 2 * annual child element amount
-    additional_children = eligible_children - UC_TWO_CHILD_LIMIT
-
-    # Get the uprated child element and work allowance for the target year
+    # Get the uprated values for the target year
     # UC benefits and thresholds are uprated by CPI each April
     if year <= 2025:
         child_element = UC_CHILD_ELEMENT_ANNUAL_2025
+        standard_allowance = UC_STANDARD_ALLOWANCE_SINGLE_PARENT_2025
         work_allowance = UC_WORK_ALLOWANCE_WITH_HOUSING_2025 if has_housing_element else UC_WORK_ALLOWANCE_NO_HOUSING_2025
     else:
         # Apply CPI uprating from 2025 to target year
         cpi_factor = get_cumulative_inflation(2025, year, use_rpi=False)
         child_element = UC_CHILD_ELEMENT_ANNUAL_2025 * cpi_factor
+        standard_allowance = UC_STANDARD_ALLOWANCE_SINGLE_PARENT_2025 * cpi_factor
         base_allowance = UC_WORK_ALLOWANCE_WITH_HOUSING_2025 if has_housing_element else UC_WORK_ALLOWANCE_NO_HOUSING_2025
         work_allowance = base_allowance * cpi_factor
 
-    # Calculate maximum child element impact (before tapering)
-    max_impact = additional_children * child_element
+    # Calculate maximum UC amounts WITH and WITHOUT the 2-child limit
+    # Max UC = standard allowance + (num_eligible_children * child_element)
+    # With limit: only first 2 children get child element
+    # Without limit: all children get child element
+    children_with_limit = min(eligible_children, UC_TWO_CHILD_LIMIT)
+    max_uc_with_limit = standard_allowance + (children_with_limit * child_element)
+    max_uc_without_limit = standard_allowance + (eligible_children * child_element)
 
-    # Apply UC taper if earnings are above work allowance
-    # The taper reduces UC by 55p for every £1 of net earnings above the work allowance
+    # Calculate income reduction (taper)
+    # UC is reduced by 55p for every £1 of net earnings above the work allowance
     if net_earnings > work_allowance:
-        taper_reduction = (net_earnings - work_allowance) * UC_TAPER_RATE
-        # The additional child element from limit abolition is tapered like other UC
-        impact_after_taper = max(0.0, max_impact - taper_reduction)
-        return impact_after_taper
+        income_reduction = (net_earnings - work_allowance) * UC_TAPER_RATE
+    else:
+        income_reduction = 0.0
 
-    return max_impact
+    # Calculate actual UC received after taper
+    actual_uc_with_limit = max(0.0, max_uc_with_limit - income_reduction)
+    actual_uc_without_limit = max(0.0, max_uc_without_limit - income_reduction)
+
+    # Impact = difference in UC received
+    # This equals the full child element impact UNTIL UC with limit is fully tapered
+    return actual_uc_without_limit - actual_uc_with_limit
 
 
 # Earnings growth plateaus at peak (no decline approaching retirement)
