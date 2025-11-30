@@ -49,6 +49,20 @@ STUDENT_LOAN_THRESHOLD_PLAN2 = 27_295
 STUDENT_LOAN_RATE = 0.09
 STUDENT_LOAN_FORGIVENESS_YEARS = 30
 
+# Plan 2 interest rate parameters (income-contingent)
+# Source: policyengine-uk PR #1418 and Student Loans Company
+# https://github.com/PolicyEngine/policyengine-uk/pull/1418
+#
+# Interest rate varies by income:
+# - Below lower threshold: RPI only
+# - Above upper threshold: RPI + 3%
+# - Between thresholds: Tapered rate = RPI + 3% × (income - lower) / (upper - lower)
+#
+# 2024-25 values (effective from September 2024)
+STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024 = 28_470
+STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024 = 51_245
+STUDENT_LOAN_INTEREST_ADDITIONAL_RATE = 0.03  # Maximum additional rate above RPI
+
 # Fuel duty rates (£ per litre) - calendar year averages
 # Source: PolicyEngine-UK implementation and fuel-duty-freeze-2025 report
 # https://policyengine.org/uk/research/fuel-duty-freeze-2025
@@ -323,6 +337,51 @@ def calculate_ni(gross_income: float) -> float:
     return ni
 
 
+def get_student_loan_interest_rate(gross_income: float, year: int) -> float:
+    """Calculate Plan 2 student loan interest rate based on income.
+
+    Plan 2 loans use income-contingent interest rates:
+    - Below lower threshold: RPI only (prevailing rate)
+    - Above upper threshold: RPI + 3%
+    - Between thresholds: Tapered rate = RPI + 3% × (income - lower) / (upper - lower)
+
+    The thresholds are uprated by RPI each year from the 2024 base values.
+
+    Args:
+        gross_income: Annual gross income
+        year: Calendar year
+
+    Returns:
+        Annual interest rate as a decimal (e.g., 0.062 for 6.2%)
+    """
+    rpi = get_rpi(year)
+
+    # Uprate thresholds from 2024 base values
+    if year <= 2024:
+        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024
+        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024
+    else:
+        rpi_factor = get_cumulative_inflation(2024, year, use_rpi=True)
+        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024 * rpi_factor
+        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024 * rpi_factor
+
+    # Calculate interest rate based on income
+    if gross_income <= lower_threshold:
+        # Below lower threshold: RPI only
+        return rpi
+    elif gross_income >= upper_threshold:
+        # Above upper threshold: RPI + 3%
+        return rpi + STUDENT_LOAN_INTEREST_ADDITIONAL_RATE
+    else:
+        # Between thresholds: tapered rate
+        # Formula: RPI + 3% × (income - lower) / (upper - lower)
+        taper_fraction = (gross_income - lower_threshold) / (
+            upper_threshold - lower_threshold
+        )
+        additional_rate = STUDENT_LOAN_INTEREST_ADDITIONAL_RATE * taper_fraction
+        return rpi + additional_rate
+
+
 def calculate_student_loan(
     gross_income: float, remaining_debt: float, year: int, years_since_graduation: int,
     threshold: float = None
@@ -346,8 +405,10 @@ def calculate_student_loan(
         return 0, 0
     if threshold is None:
         threshold = STUDENT_LOAN_THRESHOLD_PLAN2
-    rpi = get_rpi(year)
-    interest_rate = min(rpi + 0.03, 0.071)
+
+    # Calculate income-contingent interest rate
+    interest_rate = get_student_loan_interest_rate(gross_income, year)
+
     if gross_income <= threshold:
         new_debt = remaining_debt * (1 + interest_rate)
         return 0, new_debt
