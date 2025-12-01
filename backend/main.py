@@ -50,17 +50,50 @@ STUDENT_LOAN_RATE = 0.09
 STUDENT_LOAN_FORGIVENESS_YEARS = 30
 
 # Plan 2 interest rate parameters (income-contingent)
-# Source: policyengine-uk PR #1418 and Student Loans Company
-# https://github.com/PolicyEngine/policyengine-uk/pull/1418
+# Source: policyengine-uk/parameters/gov/hmrc/student_loans/interest_rates/plan_2/
+# and GOV.UK announcements
+# https://www.gov.uk/government/news/student-loans-interest-and-repayment-threshold-announcement-for-plan-2-and-plan-3-loans
 #
 # Interest rate varies by income:
 # - Below lower threshold: RPI only
 # - Above upper threshold: RPI + 3%
 # - Between thresholds: Tapered rate = RPI + 3% × (income - lower) / (upper - lower)
 #
-# 2024-25 values (effective from September 2024)
-STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024 = 28_470
-STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024 = 51_245
+# Lower threshold equals the repayment threshold (per policyengine-uk documentation)
+# Upper threshold is announced separately and historically tracks RPI when not frozen
+# Note: Dates are September (academic year) - we use calendar year as approximation
+#
+# For years beyond 2026:
+# - Lower threshold: frozen at £29,385 through 2029 (Budget 2025 repayment threshold freeze)
+# - Upper threshold: assumed RPI uprating from 2026 base (no announced freeze)
+STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS = {
+    # From policyengine-uk (September dates, using calendar year as key)
+    2020: 26_575,  # 2020-09-01
+    2021: 27_295,  # 2021-09-01
+    2022: 27_295,  # 2022-09-01 (frozen)
+    2023: 27_660,  # 2023-09-01
+    2024: 27_660,  # 2024-09-01 (frozen)
+    2025: 28_470,  # 2025-09-01
+    2026: 29_385,  # 2026-09-01 (GOV.UK announcement)
+    # Budget 2025: repayment threshold frozen 2027-2030, lower interest threshold follows
+    2027: 29_385,  # Frozen (Budget 2025)
+    2028: 29_385,  # Frozen (Budget 2025)
+    2029: 29_385,  # Frozen (Budget 2025)
+}
+STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS = {
+    # From policyengine-uk (September dates, using calendar year as key)
+    2020: 47_835,  # 2020-09-01
+    2021: 49_130,  # 2021-09-01
+    2022: 49_130,  # 2022-09-01 (frozen)
+    2023: 49_585,  # 2023-09-01
+    2024: 49_585,  # 2024-09-01 (frozen)
+    2025: 51_245,  # 2025-09-01
+    2026: 52_885,  # 2026-09-01 (GOV.UK announcement)
+    # Budget 2025: interest rate thresholds frozen 2027-2030 (OBR EFO Nov 2025, section 3.22)
+    2027: 52_885,  # Frozen (Budget 2025)
+    2028: 52_885,  # Frozen (Budget 2025)
+    2029: 52_885,  # Frozen (Budget 2025)
+}
 STUDENT_LOAN_INTEREST_ADDITIONAL_RATE = 0.03  # Maximum additional rate above RPI
 
 # Fuel duty rates (£ per litre) - calendar year averages
@@ -337,6 +370,49 @@ def calculate_ni(gross_income: float) -> float:
     return ni
 
 
+def get_student_loan_interest_thresholds(year: int) -> tuple[float, float]:
+    """Get the interest rate thresholds for a given year.
+
+    Lower threshold: equals repayment threshold, frozen 2027-2029 per Budget 2025,
+    then assumed RPI uprating from 2030.
+
+    Upper threshold: no announced freeze, assumed RPI uprating from 2026 base.
+
+    Args:
+        year: Calendar year
+
+    Returns:
+        Tuple of (lower_threshold, upper_threshold)
+    """
+    # Lower threshold: use explicit values where available
+    lower_known_years = sorted(STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS.keys())
+    if year in STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS:
+        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS[year]
+    elif year < min(lower_known_years):
+        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS[min(lower_known_years)]
+    else:
+        # Beyond 2029: RPI uprate from the last frozen value
+        last_known_year = max(lower_known_years)
+        base_value = STUDENT_LOAN_INTEREST_LOWER_THRESHOLDS[last_known_year]
+        rpi_factor = get_cumulative_inflation(last_known_year, year, use_rpi=True)
+        lower_threshold = base_value * rpi_factor
+
+    # Upper threshold: use explicit values where available, RPI uprate beyond
+    upper_known_years = sorted(STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS.keys())
+    if year in STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS:
+        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS[year]
+    elif year < min(upper_known_years):
+        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS[min(upper_known_years)]
+    else:
+        # Beyond 2026: RPI uprate from 2026 base (no announced freeze)
+        last_known_year = max(upper_known_years)
+        base_value = STUDENT_LOAN_INTEREST_UPPER_THRESHOLDS[last_known_year]
+        rpi_factor = get_cumulative_inflation(last_known_year, year, use_rpi=True)
+        upper_threshold = base_value * rpi_factor
+
+    return (lower_threshold, upper_threshold)
+
+
 def get_student_loan_interest_rate(gross_income: float, year: int) -> float:
     """Calculate Plan 2 student loan interest rate based on income.
 
@@ -345,7 +421,7 @@ def get_student_loan_interest_rate(gross_income: float, year: int) -> float:
     - Above upper threshold: RPI + 3%
     - Between thresholds: Tapered rate = RPI + 3% × (income - lower) / (upper - lower)
 
-    The thresholds are uprated by RPI each year from the 2024 base values.
+    Thresholds are set by government announcement each year (not automatically RPI-indexed).
 
     Args:
         gross_income: Annual gross income
@@ -355,15 +431,7 @@ def get_student_loan_interest_rate(gross_income: float, year: int) -> float:
         Annual interest rate as a decimal (e.g., 0.062 for 6.2%)
     """
     rpi = get_rpi(year)
-
-    # Uprate thresholds from 2024 base values
-    if year <= 2024:
-        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024
-        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024
-    else:
-        rpi_factor = get_cumulative_inflation(2024, year, use_rpi=True)
-        lower_threshold = STUDENT_LOAN_INTEREST_LOWER_THRESHOLD_2024 * rpi_factor
-        upper_threshold = STUDENT_LOAN_INTEREST_UPPER_THRESHOLD_2024 * rpi_factor
+    lower_threshold, upper_threshold = get_student_loan_interest_thresholds(year)
 
     # Calculate interest rate based on income
     if gross_income <= lower_threshold:

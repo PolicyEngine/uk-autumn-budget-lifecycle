@@ -718,6 +718,7 @@
                 <li>Earnings grow with age following typical career progression, plateauing at 2.2x starting salary from age 50.</li>
                 <li>CPI inflation follows <a href="https://obr.uk/efo/economic-and-fiscal-outlook-november-2025/" target="_blank">OBR forecasts</a> then 2% long-term; RPI follows OBR forecasts then 2.39% long-term.</li>
                 <li>State pension uses <a href="https://media.quilter.com/search/state-pension-just-15p-shy-of-breaching-tax-allowances-in-2026-forecasts-obr/" target="_blank">OBR projections</a> for 2024-2027 (triple lock applied), then grows at 4% annually — based on OBR's <a href="https://obr.uk/frs/fiscal-risks-and-sustainability-july-2025/" target="_blank">fiscal sustainability analysis</a> showing the triple lock averages ~0.5pp above earnings growth (2% productivity + 2% CPI target ≈ 4% earnings).</li>
+                <li><strong>Student loan interest rates</strong> are income-contingent: RPI only below the lower threshold (£29,385 in 2026), tapered to RPI+3% at the upper threshold (£52,885 in 2026). The lower threshold equals the repayment threshold and is frozen 2027-2029 per Budget 2025. The upper threshold has no announced freeze, so we assume RPI uprating from 2026. Historical thresholds from <a href="https://github.com/PolicyEngine/policyengine-uk/tree/main/policyengine_uk/parameters/gov/hmrc/student_loans/interest_rates/plan_2" target="_blank">PolicyEngine-UK</a>.</li>
                 <li>Unearned income (dividends, savings interest, property income) grows with CPI to maintain real value.</li>
                 <li>Positive values (green) indicate the reform makes you better off; negative (red) means worse off.</li>
             </ul>
@@ -1651,14 +1652,84 @@
             const prevBaselineDebt = prevRow ? prevRow.baseline_sl_debt : inputs.student_loan_debt;
             const prevReformDebt = prevRow ? prevRow.reform_sl_debt : inputs.student_loan_debt;
 
-            // Calculate interest rate (RPI + 3%, capped at 7.1%)
+            // Income-contingent interest rate calculation
+            // Plan 2 loans: RPI only below lower threshold, RPI+3% above upper, tapered between
+            // Thresholds are set by government announcement each year (not automatically RPI-indexed)
+            // Source: https://www.gov.uk/government/news/student-loans-interest-and-repayment-threshold-announcement-for-plan-2-and-plan-3-loans
             const getRpi = (y) => {
                 const RPI_FORECASTS = {2024: 0.0331, 2025: 0.0416, 2026: 0.0308, 2027: 0.0300, 2028: 0.0283, 2029: 0.0283};
                 const RPI_LONG_TERM = 0.0239;
                 return RPI_FORECASTS[y] || RPI_LONG_TERM;
             };
             const rpi = getRpi(year);
-            const interestRate = Math.min(rpi + 0.03, 0.071);
+
+            // Interest rate thresholds by year (set by government announcement)
+            // Source: policyengine-uk/parameters/gov/hmrc/student_loans/interest_rates/plan_2/
+            // Both thresholds frozen 2027-2029 per Budget 2025 (OBR EFO Nov 2025, section 3.22)
+            const INTEREST_LOWER_THRESHOLDS = {
+                2020: 26575, 2021: 27295, 2022: 27295, 2023: 27660,
+                2024: 27660, 2025: 28470, 2026: 29385,
+                2027: 29385, 2028: 29385, 2029: 29385  // Frozen per Budget 2025
+            };
+            const INTEREST_UPPER_THRESHOLDS = {
+                2020: 47835, 2021: 49130, 2022: 49130, 2023: 49585,
+                2024: 49585, 2025: 51245, 2026: 52885,
+                // Budget 2025: interest rate thresholds frozen 2027-2030 (OBR EFO Nov 2025, section 3.22)
+                2027: 52885, 2028: 52885, 2029: 52885
+            };
+            const getCumulativeRpi = (baseYear, targetYear) => {
+                const RPI_FORECASTS = {2024: 0.0331, 2025: 0.0416, 2026: 0.0308, 2027: 0.0300, 2028: 0.0283, 2029: 0.0283};
+                const RPI_LONG_TERM = 0.0239;
+                let factor = 1.0;
+                for (let y = baseYear; y < targetYear; y++) {
+                    factor *= (1 + (RPI_FORECASTS[y] || RPI_LONG_TERM));
+                }
+                return factor;
+            };
+            const getInterestThresholds = (y) => {
+                // Lower threshold: use explicit values, RPI uprate beyond 2029
+                let lower;
+                const lowerKnownYears = Object.keys(INTEREST_LOWER_THRESHOLDS).map(Number).sort((a,b) => a-b);
+                if (INTEREST_LOWER_THRESHOLDS[y] !== undefined) {
+                    lower = INTEREST_LOWER_THRESHOLDS[y];
+                } else if (y < Math.min(...lowerKnownYears)) {
+                    lower = INTEREST_LOWER_THRESHOLDS[Math.min(...lowerKnownYears)];
+                } else {
+                    const lastKnownYear = Math.max(...lowerKnownYears);
+                    lower = INTEREST_LOWER_THRESHOLDS[lastKnownYear] * getCumulativeRpi(lastKnownYear, y);
+                }
+
+                // Upper threshold: use explicit values, RPI uprate beyond 2026
+                let upper;
+                const upperKnownYears = Object.keys(INTEREST_UPPER_THRESHOLDS).map(Number).sort((a,b) => a-b);
+                if (INTEREST_UPPER_THRESHOLDS[y] !== undefined) {
+                    upper = INTEREST_UPPER_THRESHOLDS[y];
+                } else if (y < Math.min(...upperKnownYears)) {
+                    upper = INTEREST_UPPER_THRESHOLDS[Math.min(...upperKnownYears)];
+                } else {
+                    const lastKnownYear = Math.max(...upperKnownYears);
+                    upper = INTEREST_UPPER_THRESHOLDS[lastKnownYear] * getCumulativeRpi(lastKnownYear, y);
+                }
+
+                return { lower, upper };
+            };
+            const {lower: interestLowerThreshold, upper: interestUpperThreshold} = getInterestThresholds(year);
+
+            // Calculate income-contingent interest rate
+            let interestRate;
+            let interestRateType;
+            if (income <= interestLowerThreshold) {
+                interestRate = rpi;
+                interestRateType = 'RPI only (income below £' + d3.format(',.0f')(interestLowerThreshold) + ')';
+            } else if (income >= interestUpperThreshold) {
+                interestRate = rpi + 0.03;
+                interestRateType = 'RPI + 3% (income above £' + d3.format(',.0f')(interestUpperThreshold) + ')';
+            } else {
+                const taperFraction = (income - interestLowerThreshold) / (interestUpperThreshold - interestLowerThreshold);
+                const additionalRate = 0.03 * taperFraction;
+                interestRate = rpi + additionalRate;
+                interestRateType = `RPI + ${(additionalRate * 100).toFixed(1)}% (tapered)`;
+            }
 
             // Combined rows with section headers
             const allRows = [
@@ -1711,7 +1782,7 @@
             });
 
             tableHtml += `</tbody></table>`;
-            tableHtml += `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 8px;">Interest = RPI (${(rpi * 100).toFixed(1)}%) + 3% = ${((rpi + 0.03) * 100).toFixed(1)}%${rpi + 0.03 > 0.071 ? ' (capped at 7.1%)' : ''}</div>`;
+            tableHtml += `<div style="font-size: 0.75rem; color: #94a3b8; margin-top: 8px;">Interest rate: ${(interestRate * 100).toFixed(1)}% — ${interestRateType}</div>`;
 
             const termsLabel = getTermsSuffix();
             let html = `
@@ -1727,7 +1798,7 @@
                     ${tableHtml}
 
                     <div style="margin-top: 16px; font-size: 0.8rem; color: #64748b;">
-                        <strong>How it works:</strong> Repayment = 9% × (income − threshold). Pre-AB, threshold rises with RPI. Post-AB, threshold frozen at £27,295 until 2030. Higher repayments under Post-AB mean faster debt payoff but less disposable income.
+                        <strong>How it works:</strong> Repayment = 9% × (income − threshold). Interest is income-contingent: RPI only below £${d3.format(',.0f')(interestLowerThreshold)}, tapered to RPI+3% at £${d3.format(',.0f')(interestUpperThreshold)}. Pre-AB, threshold rises with RPI. Post-AB, threshold frozen at £27,295 until 2030.
                     </div>
                 </div>
             `;
