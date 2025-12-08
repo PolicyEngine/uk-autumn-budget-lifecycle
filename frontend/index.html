@@ -26,8 +26,8 @@
         .header-content { flex: 1; }
         .header-logo img { opacity: 0.9; transition: opacity 0.15s; }
         .header-logo:hover img { opacity: 1; }
-        h1 { font-size: 1.75rem; font-weight: 600; color: #1e293b; margin-bottom: 6px; }
-        .subtitle { font-size: 1rem; color: #64748b; margin-bottom: 0; line-height: 1.6; }
+        h1 { font-size: 1.75rem; font-weight: 600; color: #374151; margin-bottom: 6px; }
+        .subtitle { font-size: 1rem; color: #666666; margin-bottom: 0; line-height: 1.6; }
         .layout { display: grid; grid-template-columns: 300px 1fr; gap: 24px; }
 
         .controls {
@@ -39,12 +39,12 @@
             position: sticky;
             top: 24px;
         }
-        .controls h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; color: #1e293b; }
+        .controls h2 { font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; color: #374151; }
         .control-group { margin-bottom: 14px; }
         .control-group label {
             display: block;
             font-size: 0.75rem;
-            color: #64748b;
+            color: #6b7280;
             margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 0.3px;
@@ -58,12 +58,12 @@
             font-size: 0.9rem;
             font-family: inherit;
             background: #fff;
-            color: #1e293b;
+            color: #374151;
         }
         .control-group select:focus {
             outline: none;
-            border-color: #0f766e;
-            box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
+            border-color: #319795;
+            box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
         }
 
         .slider-container {
@@ -85,19 +85,19 @@
             appearance: none;
             width: 18px;
             height: 18px;
-            background: #0f766e;
+            background: #319795;
             border-radius: 50%;
             cursor: pointer;
             transition: transform 0.1s, box-shadow 0.1s;
         }
         .slider-container input[type="range"]::-webkit-slider-thumb:hover {
             transform: scale(1.15);
-            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.4);
+            box-shadow: 0 2px 8px rgba(49, 151, 149, 0.4);
         }
         .slider-container input[type="range"]::-moz-range-thumb {
             width: 18px;
             height: 18px;
-            background: #0f766e;
+            background: #319795;
             border-radius: 50%;
             cursor: pointer;
             border: none;
@@ -107,7 +107,7 @@
             text-align: right;
             font-size: 0.85rem;
             font-weight: 500;
-            color: #1e293b;
+            color: #374151;
             font-variant-numeric: tabular-nums;
         }
 
@@ -125,14 +125,14 @@
             text-align: center;
         }
         .summary-item.highlighted {
-            background: linear-gradient(135deg, #0f766e 0%, #0d6560 100%);
-            box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+            background: linear-gradient(135deg, #319795 0%, #2a8280 100%);
+            box-shadow: 0 4px 12px rgba(49, 151, 149, 0.25);
         }
         .summary-item.highlighted .summary-label { color: rgba(255,255,255,0.9); }
         .summary-item.highlighted .summary-value { color: #fff; }
         .summary-label {
             font-size: 0.75rem;
-            color: #64748b;
+            color: #6b7280;
             text-transform: uppercase;
             letter-spacing: 0.3px;
             margin-bottom: 6px;
@@ -141,11 +141,11 @@
         .summary-value {
             font-size: 1.5rem;
             font-weight: 700;
-            color: #0f766e;
+            color: #319795;
             font-variant-numeric: tabular-nums;
         }
-        .summary-value.positive { color: #0f766e; }
-        .summary-value.negative { color: #dc2626; }
+        .summary-value.positive { color: #319795; }
+        .summary-value.negative { color: #E53E3E; }
 
         .chart-container {
             background: #fff;
@@ -161,11 +161,11 @@
         .chart-watermark img { height: 24px; opacity: 0.5; transition: opacity 0.15s; }
         .chart-watermark:hover img { opacity: 0.8; }
         #chart { width: 100%; height: 400px; }
-        .axis text { fill: #64748b; font-size: 11px; }
-        .axis path, .axis line { stroke: #e2e8f0; }
-        .grid line { stroke: #f1f5f9; }
+        .axis text { fill: #6b7280; font-size: 11px; }
+        .axis path, .axis line { stroke: #e5e7eb; }
+        .grid line { stroke: #e0e0e0; stroke-dasharray: 4,4; }
         .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: center; }
-        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #475569; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #374151; }
         .legend-color { width: 12px; height: 12px; border-radius: 3px; }
 
         .download-buttons {
@@ -185,16 +185,16 @@
             padding: 8px 16px;
             font-size: 0.85rem;
             font-weight: 500;
-            color: #0f766e;
+            color: #319795;
             background: #fff;
-            border: 1px solid #0f766e;
+            border: 1px solid #319795;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
             font-family: inherit;
         }
         .download-btn:hover {
-            background: #0f766e;
+            background: #319795;
             color: #fff;
         }
 
@@ -222,7 +222,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #cbd5e1;
+            background-color: #9CA3AF;
             transition: 0.3s;
             border-radius: 24px;
         }
@@ -239,7 +239,7 @@
             box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         .toggle-switch input:checked + .toggle-slider {
-            background-color: #0f766e;
+            background-color: #319795;
         }
         .toggle-switch input:checked + .toggle-slider:before {
             transform: translateX(20px);
@@ -256,13 +256,13 @@
             color: #64748b;
         }
         .toggle-label.real {
-            color: #0f766e;
+            color: #319795;
         }
 
         .tooltip {
             position: absolute;
             background: #fff;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #d1d5db;
             border-radius: 8px;
             padding: 12px 16px;
             pointer-events: none;
@@ -272,12 +272,12 @@
             font-size: 0.85rem;
             z-index: 100;
         }
-        .tooltip-title { font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+        .tooltip-title { font-weight: 600; margin-bottom: 8px; color: #374151; }
         .tooltip-row { display: flex; justify-content: space-between; gap: 16px; margin: 3px 0; }
-        .tooltip-label { color: #64748b; }
+        .tooltip-label { color: #6b7280; }
         .tooltip-value { font-weight: 500; }
-        .tooltip-value.positive { color: #0f766e; }
-        .tooltip-value.negative { color: #dc2626; }
+        .tooltip-value.positive { color: #319795; }
+        .tooltip-value.negative { color: #E53E3E; }
         .tooltip-section { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
         .tooltip-reforms { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
         .tooltip-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-weight: 600; }
@@ -365,15 +365,15 @@
         .calc-section:last-child { margin-bottom: 0; }
         .calc-title { font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
         .calc-dot { width: 10px; height: 10px; border-radius: 3px; }
-        .calc-explanation { color: #666; font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px; }
+        .calc-explanation { color: #666666; font-size: 0.9rem; line-height: 1.6; margin-bottom: 12px; }
         .calc-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
         .calc-table td { padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
         .calc-table td:last-child { text-align: right; font-family: monospace; }
         .calc-result { font-weight: 600; border-top: 2px solid #e5e5e5 !important; }
-        .calc-result.positive { color: #16a34a; }
-        .calc-result.negative { color: #dc2626; }
+        .calc-result.positive { color: #319795; }
+        .calc-result.negative { color: #E53E3E; }
 
-        .loading { text-align: center; padding: 40px; color: #888; }
+        .loading { text-align: center; padding: 40px; color: #6b7280; }
 
         .tab-bar {
             display: flex;
@@ -394,13 +394,13 @@
             font-family: inherit;
         }
         .detail-tab:hover {
-            color: #0f766e;
+            color: #319795;
             background: #f0fdfa;
         }
         .detail-tab.active {
-            color: #0f766e;
+            color: #319795;
             font-weight: 600;
-            border-bottom-color: #0f766e;
+            border-bottom-color: #319795;
             background: transparent;
         }
         .detail-panel {
@@ -418,18 +418,18 @@
         .methodology h2 {
             font-size: 1.25rem;
             font-weight: 600;
-            color: #1e293b;
+            color: #374151;
             margin-bottom: 12px;
         }
         .methodology h3 {
             font-size: 1rem;
             font-weight: 600;
-            color: #1e293b;
+            color: #374151;
             margin: 20px 0 10px 0;
         }
         .methodology p {
             font-size: 0.95rem;
-            color: #475569;
+            color: #666666;
             line-height: 1.7;
             margin-bottom: 12px;
         }
@@ -439,12 +439,12 @@
         }
         .methodology li {
             font-size: 0.9rem;
-            color: #475569;
+            color: #666666;
             line-height: 1.7;
             margin-bottom: 8px;
         }
         .methodology li strong {
-            color: #1e293b;
+            color: #374151;
         }
         .defaults-table {
             width: 100%;
@@ -458,16 +458,16 @@
             border-bottom: 1px solid #e2e8f0;
         }
         .defaults-table th {
-            background: #f8fafc;
+            background: #f9f9f9;
             font-weight: 600;
-            color: #1e293b;
+            color: #374151;
         }
         .defaults-table td {
-            color: #475569;
+            color: #666666;
         }
         .defaults-table td:first-child {
             font-weight: 500;
-            color: #1e293b;
+            color: #374151;
         }
         .defaults-table td:nth-child(2) {
             font-family: monospace;
@@ -475,13 +475,13 @@
         }
         .defaults-table td:nth-child(3) {
             font-size: 0.85rem;
-            color: #64748b;
+            color: #6b7280;
         }
         .defaults-table tbody tr:hover {
-            background: #f8fafc;
+            background: #f9f9f9;
         }
         .defaults-table a {
-            color: #2C7A7B;
+            color: #319795;
         }
     </style>
 </head>
@@ -770,13 +770,13 @@
         const API_URL = window.API_URL;
 
         const reforms = [
-            { key: 'impact_rail_fare_freeze', label: 'Rail fare freeze', color: '#3b82f6' },
-            { key: 'impact_fuel_duty_freeze', label: 'Fuel duty freeze', color: '#eab308' },
-            { key: 'impact_threshold_freeze', label: 'Threshold freeze', color: '#ef4444' },
-            { key: 'impact_unearned_income_tax', label: 'Unearned income tax', color: '#8b5cf6' },
-            { key: 'impact_salary_sacrifice_cap', label: 'Salary sacrifice cap', color: '#14b8a6' },
-            { key: 'impact_sl_threshold_freeze', label: 'SL threshold freeze', color: '#f97316' },
-            { key: 'impact_two_child_limit', label: 'Two-child limit end', color: '#10b981' }
+            { key: 'impact_rail_fare_freeze', label: 'Rail fare freeze', color: '#5FB88A' },
+            { key: 'impact_fuel_duty_freeze', label: 'Fuel duty freeze', color: '#B8875A' },
+            { key: 'impact_threshold_freeze', label: 'Threshold freeze', color: '#4A7BA7' },
+            { key: 'impact_unearned_income_tax', label: 'Unearned income tax', color: '#C59A5A' },
+            { key: 'impact_salary_sacrifice_cap', label: 'Salary sacrifice cap', color: '#5A9B8F' },
+            { key: 'impact_sl_threshold_freeze', label: 'SL threshold freeze', color: '#EA580C' },
+            { key: 'impact_two_child_limit', label: 'Two-child limit end', color: '#5A8FB8' }
         ];
 
         // Map reform keys to tab names for click-to-tab functionality
@@ -1333,7 +1333,7 @@
                     .datum(stackedData)
                     .attr('class', 'net-line')
                     .attr('fill', 'none')
-                    .attr('stroke', '#1a1a1a')
+                    .attr('stroke', '#000000')
                     .attr('stroke-width', 2.5)
                     .attr('stroke-dasharray', function() {
                         const length = this.getTotalLength ? this.getTotalLength() : 0;
@@ -1357,7 +1357,7 @@
                 // Add net impact to legend
                 legend.append('div')
                     .attr('class', 'legend-item')
-                    .html(`<div class="legend-color" style="background:#1a1a1a"></div><span>Net impact</span>`);
+                    .html(`<div class="legend-color" style="background:#000000"></div><span>Net impact</span>`);
             }
 
             // Rebind tooltip and click events
@@ -2859,9 +2859,9 @@
             // Add inline styles for proper rendering
             const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
             style.textContent = `
-                .axis text { fill: #64748b; font-size: 11px; font-family: Roboto, sans-serif; }
-                .axis path, .axis line { stroke: #e2e8f0; }
-                .grid line { stroke: #f1f5f9; }
+                .axis text { fill: #6b7280; font-size: 11px; font-family: Roboto, sans-serif; }
+                .axis path, .axis line { stroke: #e5e7eb; }
+                .grid line { stroke: #e0e0e0; stroke-dasharray: 4,4; }
             `;
             clone.insertBefore(style, clone.firstChild);
 
