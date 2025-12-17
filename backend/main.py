@@ -275,6 +275,101 @@ class ModelInputs(BaseModel):
     borrowing_limit: float = 0.0  # Minimum wealth allowed (0 = no borrowing, negative = allow some debt)
 
 
+# ============================================
+# OLG Step 2: Heterogeneous Individual Types
+# ============================================
+# Predefined types for distributional analysis
+INDIVIDUAL_TYPES = {
+    "low_earner": {
+        "label": "Low Earner (£20k)",
+        "color": "#f97316",  # orange
+        "overrides": {
+            "current_salary": 20_000,
+            "student_loan_debt": 30_000,
+            "salary_sacrifice_per_year": 0,
+            "dividends_per_year": 0,
+            "savings_interest_per_year": 0,
+            "property_income_per_year": 0,
+        }
+    },
+    "medium_earner": {
+        "label": "Medium Earner (£40k)",
+        "color": "#3b82f6",  # blue
+        "overrides": {
+            "current_salary": 40_000,
+            "student_loan_debt": 50_000,
+            "salary_sacrifice_per_year": 2_000,
+            "dividends_per_year": 500,
+            "savings_interest_per_year": 500,
+            "property_income_per_year": 0,
+        }
+    },
+    "high_earner": {
+        "label": "High Earner (£80k)",
+        "color": "#10b981",  # green
+        "overrides": {
+            "current_salary": 80_000,
+            "student_loan_debt": 60_000,
+            "salary_sacrifice_per_year": 10_000,
+            "dividends_per_year": 5_000,
+            "savings_interest_per_year": 3_000,
+            "property_income_per_year": 5_000,
+        }
+    },
+    "single_no_children": {
+        "label": "Single, No Children",
+        "color": "#8b5cf6",  # purple
+        "overrides": {
+            "children_ages": [],
+        }
+    },
+    "parent_2_children": {
+        "label": "Parent (2 Children)",
+        "color": "#ec4899",  # pink
+        "overrides": {
+            "children_ages": [5, 3],  # Two young children
+        }
+    },
+    "young_graduate": {
+        "label": "Young Graduate (22)",
+        "color": "#06b6d4",  # cyan
+        "overrides": {
+            "current_age": 22,
+            "current_salary": 28_000,
+            "student_loan_debt": 50_000,
+            "initial_wealth": 0,
+        }
+    },
+    "mid_career": {
+        "label": "Mid-Career (40)",
+        "color": "#84cc16",  # lime
+        "overrides": {
+            "current_age": 40,
+            "current_salary": 55_000,
+            "student_loan_debt": 20_000,
+            "initial_wealth": 50_000,
+        }
+    },
+    "pre_retirement": {
+        "label": "Pre-Retirement (55)",
+        "color": "#f59e0b",  # amber
+        "overrides": {
+            "current_age": 55,
+            "current_salary": 60_000,
+            "student_loan_debt": 0,
+            "initial_wealth": 200_000,
+        }
+    },
+}
+
+
+class CompareTypesRequest(BaseModel):
+    """Request for comparing multiple individual types."""
+    types: list[str] = ["low_earner", "medium_earner", "high_earner"]
+    # Base parameters that apply to all types (types override these)
+    base_params: ModelInputs = ModelInputs()
+
+
 def get_cpi(year: int) -> float:
     return CPI_FORECASTS.get(year, CPI_LONG_TERM)
 
@@ -1144,3 +1239,89 @@ def root():
 def calculate(inputs: ModelInputs):
     results = run_model(inputs)
     return {"data": results}
+
+
+@app.get("/types")
+def get_types():
+    """Return available individual types for comparison."""
+    return {
+        "types": {
+            key: {"label": val["label"], "color": val["color"]}
+            for key, val in INDIVIDUAL_TYPES.items()
+        }
+    }
+
+
+@app.post("/compare-types")
+def compare_types(request: CompareTypesRequest):
+    """
+    Run lifecycle model for multiple individual types and return comparative results.
+
+    This is OLG Step 2: Heterogeneity - comparing outcomes across different types.
+    """
+    results = {}
+
+    for type_key in request.types:
+        if type_key not in INDIVIDUAL_TYPES:
+            continue
+
+        type_config = INDIVIDUAL_TYPES[type_key]
+
+        # Start with base params and apply type-specific overrides
+        params_dict = request.base_params.model_dump()
+        params_dict.update(type_config["overrides"])
+
+        # Create inputs for this type
+        type_inputs = ModelInputs(**params_dict)
+
+        # Run the model
+        type_results = run_model(type_inputs)
+
+        # Calculate summary statistics for this type
+        if type_results:
+            data_excl_last = type_results[:-1] if len(type_results) > 1 else type_results
+
+            # Lifetime totals
+            total_income = sum(r.get("net_income", 0) for r in type_results)
+            total_consumption = sum(r.get("optimal_consumption", 0) for r in type_results)
+            total_taxes = sum(r.get("income_tax", 0) + r.get("national_insurance", 0) for r in type_results)
+
+            # Peak values
+            peak_wealth = max(r.get("wealth", 0) for r in type_results)
+            peak_income = max(r.get("net_income", 0) for r in type_results)
+
+            # Consumption smoothing (excluding terminal period)
+            if data_excl_last:
+                incomes = [r.get("net_income", 0) for r in data_excl_last]
+                consumptions = [r.get("optimal_consumption", 0) for r in data_excl_last]
+
+                income_mean = sum(incomes) / len(incomes)
+                consumption_mean = sum(consumptions) / len(consumptions)
+
+                income_std = (sum((x - income_mean)**2 for x in incomes) / len(incomes)) ** 0.5
+                consumption_std = (sum((x - consumption_mean)**2 for x in consumptions) / len(consumptions)) ** 0.5
+
+                smoothing_ratio = income_std / consumption_std if consumption_std > 0 else 0
+            else:
+                smoothing_ratio = 0
+
+            summary = {
+                "total_lifetime_income": total_income,
+                "total_lifetime_consumption": total_consumption,
+                "total_lifetime_taxes": total_taxes,
+                "peak_wealth": peak_wealth,
+                "peak_income": peak_income,
+                "smoothing_ratio": smoothing_ratio,
+                "years": len(type_results),
+            }
+        else:
+            summary = {}
+
+        results[type_key] = {
+            "label": type_config["label"],
+            "color": type_config["color"],
+            "data": type_results,
+            "summary": summary,
+        }
+
+    return {"results": results}

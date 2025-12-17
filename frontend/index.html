@@ -887,6 +887,90 @@
                         People smooth consumption over their lifetime by borrowing when young, saving during peak earning years, and drawing down wealth in retirement.
                         The <strong>Euler equation</strong> determines the optimal consumption growth rate: g = [β(1+r)]<sup>1/σ</sup> - 1.
                     </div>
+
+                    <!-- ============================================ -->
+                    <!-- OLG Step 2: Heterogeneity Comparison Section -->
+                    <!-- ============================================ -->
+                    <div class="heterogeneity-section" style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #e2e8f0;">
+                        <h3 style="margin-bottom: 16px; color: #1e293b;">Compare Individual Types</h3>
+                        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 20px;">
+                            Compare lifecycle outcomes across different individual types to understand how policies affect different groups.
+                        </p>
+
+                        <!-- Type Selection -->
+                        <div class="type-selection" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 24px;">
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="low_earner" checked style="accent-color: #f97316;">
+                                <span style="color: #f97316; font-weight: 600;">Low Earner (£20k)</span>
+                            </label>
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="medium_earner" checked style="accent-color: #3b82f6;">
+                                <span style="color: #3b82f6; font-weight: 600;">Medium Earner (£40k)</span>
+                            </label>
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="high_earner" checked style="accent-color: #10b981;">
+                                <span style="color: #10b981; font-weight: 600;">High Earner (£80k)</span>
+                            </label>
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="parent_2_children" style="accent-color: #ec4899;">
+                                <span style="color: #ec4899; font-weight: 600;">Parent (2 Children)</span>
+                            </label>
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="young_graduate" style="accent-color: #06b6d4;">
+                                <span style="color: #06b6d4; font-weight: 600;">Young Graduate (22)</span>
+                            </label>
+                            <label class="type-checkbox" style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #fff; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                <input type="checkbox" name="compare-type" value="pre_retirement" style="accent-color: #f59e0b;">
+                                <span style="color: #f59e0b; font-weight: 600;">Pre-Retirement (55)</span>
+                            </label>
+                        </div>
+
+                        <!-- Metric Selection -->
+                        <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
+                            <span style="font-size: 0.85rem; color: #64748b;">Show:</span>
+                            <select id="compare-metric" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 0.85rem;">
+                                <option value="optimal_consumption">Consumption</option>
+                                <option value="wealth">Wealth</option>
+                                <option value="net_income">Net Income</option>
+                                <option value="optimal_savings">Savings</option>
+                            </select>
+                            <button id="run-comparison-btn" class="download-btn" style="padding: 8px 16px; background: #6366f1; color: white; border: none; font-weight: 600;">
+                                Compare Types
+                            </button>
+                        </div>
+
+                        <!-- Comparison Chart -->
+                        <div class="chart-container">
+                            <div id="compare-chart" style="min-height: 350px;"><div class="loading" style="display: none;">Loading comparison...</div></div>
+                            <div class="legend" id="compare-legend"></div>
+                        </div>
+
+                        <!-- Comparison Summary Table -->
+                        <div class="comparison-table-container" style="margin-top: 24px; overflow-x: auto;">
+                            <table id="comparison-table" class="comparison-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                                <thead>
+                                    <tr style="background: #f1f5f9; text-align: left;">
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Type</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Lifetime Income</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Lifetime Consumption</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Lifetime Taxes</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Peak Wealth</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Smoothing</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="comparison-table-body">
+                                    <tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">Select types and click "Compare Types" to see results</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Explanation -->
+                        <div style="margin-top: 20px; padding: 16px; background: #fef3c7; border-radius: 8px; font-size: 0.85rem; color: #92400e; line-height: 1.6;">
+                            <strong>OLG Step 2 - Heterogeneity:</strong> This comparison shows how the same behavioural parameters lead to different outcomes
+                            for different types of individuals. Low earners may struggle to smooth consumption due to borrowing constraints,
+                            while high earners can achieve significant wealth accumulation. This is the foundation for distributional policy analysis.
+                        </div>
+                    </div>
                 </div>
 
             </div>
@@ -3619,6 +3703,251 @@
 
         // Lifecycle download button
         document.getElementById('download-lifecycle-csv').addEventListener('click', downloadLifecycleCSV);
+
+        // ============================================
+        // OLG STEP 2: HETEROGENEITY COMPARISON
+        // ============================================
+
+        let comparisonData = null;
+
+        async function fetchComparisonData() {
+            const selectedTypes = Array.from(document.querySelectorAll('input[name="compare-type"]:checked'))
+                .map(cb => cb.value);
+
+            if (selectedTypes.length === 0) {
+                alert('Please select at least one type to compare');
+                return;
+            }
+
+            const loadingEl = document.querySelector('#compare-chart .loading');
+            if (loadingEl) loadingEl.style.display = 'block';
+
+            // Build base params from current lifecycle sliders
+            const baseParams = {
+                current_age: parseInt(document.getElementById('current_age').value),
+                retirement_age: parseInt(document.getElementById('retirement_age').value),
+                life_expectancy: parseInt(document.getElementById('life_expectancy').value),
+                discount_rate: parseFloat(document.getElementById('discount_rate').value),
+                risk_aversion: parseFloat(document.getElementById('risk_aversion').value),
+                interest_rate: parseFloat(document.getElementById('interest_rate').value),
+                initial_wealth: parseFloat(document.getElementById('initial_wealth').value),
+                borrowing_limit: parseFloat(document.getElementById('borrowing_limit').value),
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/compare-types`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        types: selectedTypes,
+                        base_params: baseParams
+                    })
+                });
+
+                const result = await response.json();
+                comparisonData = result.results;
+
+                renderComparisonChart();
+                updateComparisonTable();
+            } catch (error) {
+                console.error('Error fetching comparison data:', error);
+                document.querySelector('#compare-chart').innerHTML = '<div style="padding: 40px; text-align: center; color: #ef4444;">Error loading comparison data</div>';
+            } finally {
+                if (loadingEl) loadingEl.style.display = 'none';
+            }
+        }
+
+        function renderComparisonChart() {
+            if (!comparisonData) return;
+
+            const container = document.getElementById('compare-chart');
+            container.innerHTML = '';
+
+            const metric = document.getElementById('compare-metric').value;
+            const metricLabels = {
+                'optimal_consumption': 'Consumption (£)',
+                'wealth': 'Wealth (£)',
+                'net_income': 'Net Income (£)',
+                'optimal_savings': 'Savings (£)'
+            };
+
+            // Chart dimensions
+            const margin = { top: 20, right: 120, bottom: 40, left: 80 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = 350 - margin.top - margin.bottom;
+
+            // Create SVG
+            const svg = d3.select('#compare-chart')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            // Collect all data points for scales
+            let allAges = [];
+            let allValues = [];
+
+            Object.values(comparisonData).forEach(typeData => {
+                typeData.data.forEach(d => {
+                    allAges.push(d.age);
+                    allValues.push(d[metric] || 0);
+                });
+            });
+
+            // Scales
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(allAges))
+                .range([0, width]);
+
+            const yMin = Math.min(0, d3.min(allValues));
+            const yMax = d3.max(allValues);
+            const yPadding = (yMax - yMin) * 0.1;
+
+            const yScale = d3.scaleLinear()
+                .domain([yMin - yPadding, yMax + yPadding])
+                .range([height, 0]);
+
+            // Grid lines
+            g.append('g')
+                .attr('class', 'grid')
+                .selectAll('line')
+                .data(yScale.ticks(6))
+                .enter()
+                .append('line')
+                .attr('x1', 0)
+                .attr('x2', width)
+                .attr('y1', d => yScale(d))
+                .attr('y2', d => yScale(d))
+                .attr('stroke', '#f1f5f9')
+                .attr('stroke-width', 1);
+
+            // Zero line
+            if (yMin < 0) {
+                g.append('line')
+                    .attr('x1', 0)
+                    .attr('x2', width)
+                    .attr('y1', yScale(0))
+                    .attr('y2', yScale(0))
+                    .attr('stroke', '#94a3b8')
+                    .attr('stroke-width', 1)
+                    .attr('stroke-dasharray', '4,4');
+            }
+
+            // Line generator
+            const line = d3.line()
+                .x(d => xScale(d.age))
+                .y(d => yScale(d[metric] || 0))
+                .curve(d3.curveMonotoneX);
+
+            // Draw lines for each type
+            Object.entries(comparisonData).forEach(([typeKey, typeData]) => {
+                g.append('path')
+                    .datum(typeData.data)
+                    .attr('fill', 'none')
+                    .attr('stroke', typeData.color)
+                    .attr('stroke-width', 2.5)
+                    .attr('d', line);
+            });
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale)
+                .tickFormat(d => `${d}`)
+                .ticks(Math.min(10, allAges.length));
+
+            const yAxis = d3.axisLeft(yScale)
+                .tickFormat(d => `£${d3.format(',.0f')(d / 1000)}k`)
+                .ticks(6);
+
+            g.append('g')
+                .attr('class', 'axis x-axis')
+                .attr('transform', `translate(0,${height})`)
+                .call(xAxis);
+
+            g.append('g')
+                .attr('class', 'axis y-axis')
+                .call(yAxis);
+
+            // Axis labels
+            svg.append('text')
+                .attr('x', margin.left + width / 2)
+                .attr('y', height + margin.top + 35)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '12px')
+                .attr('fill', '#64748b')
+                .text('Age');
+
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -(margin.top + height / 2))
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', '12px')
+                .attr('fill', '#64748b')
+                .text(metricLabels[metric]);
+
+            // Legend
+            const legendContainer = document.getElementById('compare-legend');
+            legendContainer.innerHTML = '';
+
+            Object.entries(comparisonData).forEach(([typeKey, typeData]) => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `
+                    <span class="legend-line" style="background: ${typeData.color};"></span>
+                    <span class="legend-label">${typeData.label}</span>
+                `;
+                legendContainer.appendChild(item);
+            });
+        }
+
+        function updateComparisonTable() {
+            if (!comparisonData) return;
+
+            const tbody = document.getElementById('comparison-table-body');
+            tbody.innerHTML = '';
+
+            Object.entries(comparisonData).forEach(([typeKey, typeData]) => {
+                const s = typeData.summary;
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">
+                        <span style="display: inline-block; width: 12px; height: 12px; border-radius: 2px; background: ${typeData.color}; margin-right: 8px;"></span>
+                        ${typeData.label}
+                    </td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">£${d3.format(',.0f')(s.total_lifetime_income || 0)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">£${d3.format(',.0f')(s.total_lifetime_consumption || 0)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">£${d3.format(',.0f')(s.total_lifetime_taxes || 0)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">£${d3.format(',.0f')(s.peak_wealth || 0)}</td>
+                    <td style="padding: 12px; border-bottom: 1px solid #e2e8f0;">${(s.smoothing_ratio || 0).toFixed(1)}×</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Event listeners for comparison
+        document.getElementById('run-comparison-btn').addEventListener('click', fetchComparisonData);
+        document.getElementById('compare-metric').addEventListener('change', renderComparisonChart);
+
+        // Style checkbox labels on hover/check
+        document.querySelectorAll('.type-checkbox').forEach(label => {
+            const checkbox = label.querySelector('input');
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    label.style.borderColor = checkbox.style.accentColor;
+                    label.style.background = checkbox.style.accentColor + '10';
+                } else {
+                    label.style.borderColor = '#e2e8f0';
+                    label.style.background = '#fff';
+                }
+            });
+            // Trigger initial state
+            if (checkbox.checked) {
+                label.style.borderColor = checkbox.style.accentColor;
+                label.style.background = checkbox.style.accentColor + '10';
+            }
+        });
 
         // ============================================
         // END LIFECYCLE MODEL TAB FUNCTIONALITY
