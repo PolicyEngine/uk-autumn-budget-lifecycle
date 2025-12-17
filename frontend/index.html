@@ -375,6 +375,163 @@
 
         .loading { text-align: center; padding: 40px; color: #888; }
 
+        /* Main tab navigation */
+        .main-tab-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .main-tab {
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #64748b;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .main-tab:hover {
+            color: #0f766e;
+            border-color: #0f766e;
+            background: #f0fdfa;
+        }
+        .main-tab.active {
+            color: #fff;
+            font-weight: 600;
+            background: linear-gradient(135deg, #0f766e 0%, #0d6560 100%);
+            border-color: #0f766e;
+            box-shadow: 0 2px 8px rgba(15, 118, 110, 0.3);
+        }
+        .main-tab-content {
+            display: none;
+        }
+        .main-tab-content.active {
+            display: block;
+        }
+
+        /* Lifecycle controls section */
+        .lifecycle-controls {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .lifecycle-controls h3 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .lifecycle-params {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+        }
+        @media (max-width: 1100px) {
+            .lifecycle-params {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        @media (max-width: 700px) {
+            .lifecycle-params {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .lifecycle-param {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .lifecycle-param label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-weight: 500;
+        }
+        .lifecycle-param .param-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .lifecycle-param input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e2e8f0;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .lifecycle-param input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #6366f1;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .lifecycle-param .param-value {
+            min-width: 50px;
+            text-align: right;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        /* Lifecycle summary cards */
+        .lifecycle-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 900px) {
+            .lifecycle-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        .lifecycle-stat {
+            background: #fff;
+            padding: 16px 20px;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .lifecycle-stat.highlight {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        }
+        .lifecycle-stat.highlight .stat-label { color: rgba(255,255,255,0.9); }
+        .lifecycle-stat.highlight .stat-value { color: #fff; }
+        .lifecycle-stat .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .lifecycle-stat .stat-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #6366f1;
+            font-variant-numeric: tabular-nums;
+        }
+        .lifecycle-stat .stat-subtext {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .lifecycle-stat.highlight .stat-subtext { color: rgba(255,255,255,0.7); }
+
         .tab-bar {
             display: flex;
             border-bottom: 2px solid #e2e8f0;
@@ -599,30 +756,136 @@
             </div>
 
             <div>
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-                    <div class="toggle-container" style="background: #fff; padding: 8px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                        <span class="toggle-label nominal" id="nominal-label">Nominal</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="real-terms-toggle" checked>
-                            <span class="toggle-slider"></span>
-                        </label>
-                        <span class="toggle-label real active" id="real-label">2025 £</span>
+                <!-- Main Tab Navigation -->
+                <div class="main-tab-bar">
+                    <button class="main-tab active" data-tab="policy">Policy Impact</button>
+                    <button class="main-tab" data-tab="lifecycle">Life-Cycle Model</button>
+                </div>
+
+                <!-- Policy Impact Tab (Original Content) -->
+                <div class="main-tab-content active" id="policy-tab">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                        <div class="toggle-container" style="background: #fff; padding: 8px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                            <span class="toggle-label nominal" id="nominal-label">Nominal</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="real-terms-toggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label real active" id="real-label">2025 £</span>
+                        </div>
+                    </div>
+                    <div class="summary" id="summary"></div>
+                    <div class="chart-container">
+                        <div id="chart"><div class="loading">Loading...</div></div>
+                        <div class="legend" id="legend"></div>
+                        <div class="download-buttons">
+                            <div class="download-buttons-inner">
+                                <button class="download-btn" id="download-svg">Download SVG</button>
+                                <button class="download-btn" id="download-csv">Download CSV</button>
+                            </div>
+                            <div class="chart-watermark">
+                                <a href="https://policyengine.org" target="_blank">
+                                    <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="summary" id="summary"></div>
-                <div class="chart-container">
-                    <div id="chart"><div class="loading">Loading...</div></div>
-                    <div class="legend" id="legend"></div>
-                    <div class="download-buttons">
-                        <div class="download-buttons-inner">
-                            <button class="download-btn" id="download-svg">Download SVG</button>
-                            <button class="download-btn" id="download-csv">Download CSV</button>
+
+                <!-- Life-Cycle Model Tab (New Content) -->
+                <div class="main-tab-content" id="lifecycle-tab">
+                    <!-- Lifecycle Parameters -->
+                    <div class="lifecycle-controls">
+                        <h3>Behavioural Parameters</h3>
+                        <div class="lifecycle-params">
+                            <div class="lifecycle-param">
+                                <label title="β - How much you value future vs present consumption. Higher = more patient.">Discount Rate (β)</label>
+                                <div class="param-row">
+                                    <input type="range" id="discount_rate" value="0.96" min="0.90" max="0.99" step="0.01">
+                                    <span class="param-value" id="discount_rate_value">0.96</span>
+                                </div>
+                            </div>
+                            <div class="lifecycle-param">
+                                <label title="σ - Risk aversion / consumption smoothing preference. Higher = smoother consumption.">Risk Aversion (σ)</label>
+                                <div class="param-row">
+                                    <input type="range" id="risk_aversion" value="2.0" min="0.5" max="5.0" step="0.1">
+                                    <span class="param-value" id="risk_aversion_value">2.0</span>
+                                </div>
+                            </div>
+                            <div class="lifecycle-param">
+                                <label title="Annual return on savings (before inflation).">Interest Rate (r)</label>
+                                <div class="param-row">
+                                    <input type="range" id="interest_rate" value="0.04" min="0.01" max="0.08" step="0.005">
+                                    <span class="param-value" id="interest_rate_value">4.0%</span>
+                                </div>
+                            </div>
+                            <div class="lifecycle-param">
+                                <label title="Starting wealth/assets at current age.">Initial Wealth</label>
+                                <div class="param-row">
+                                    <input type="range" id="initial_wealth" value="0" min="0" max="500000" step="10000">
+                                    <span class="param-value" id="initial_wealth_value">£0</span>
+                                </div>
+                            </div>
+                            <div class="lifecycle-param">
+                                <label title="Minimum wealth allowed. 0 = no borrowing. Negative = allow some debt.">Borrowing Limit</label>
+                                <div class="param-row">
+                                    <input type="range" id="borrowing_limit" value="0" min="-500000" max="0" step="10000">
+                                    <span class="param-value" id="borrowing_limit_value">£0</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="chart-watermark">
-                            <a href="https://policyengine.org" target="_blank">
-                                <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
-                            </a>
+                        <div style="margin-top: 12px; display: flex; gap: 16px; align-items: center;">
+                            <button id="no-borrowing-btn" class="download-btn" style="padding: 6px 12px; font-size: 0.8rem;">No Borrowing (£0)</button>
+                            <button id="unlimited-borrowing-btn" class="download-btn" style="padding: 6px 12px; font-size: 0.8rem;">Unlimited Borrowing</button>
+                            <span style="font-size: 0.75rem; color: #64748b;">Quick presets</span>
                         </div>
+                    </div>
+
+                    <!-- Lifecycle Summary Stats -->
+                    <div class="lifecycle-summary" id="lifecycle-summary">
+                        <div class="lifecycle-stat highlight">
+                            <div class="stat-label">Consumption Smoothing</div>
+                            <div class="stat-value" id="smoothing-ratio">—</div>
+                            <div class="stat-subtext">× smoother than income</div>
+                        </div>
+                        <div class="lifecycle-stat">
+                            <div class="stat-label">Consumption Growth</div>
+                            <div class="stat-value" id="consumption-growth">—</div>
+                            <div class="stat-subtext">annual rate</div>
+                        </div>
+                        <div class="lifecycle-stat">
+                            <div class="stat-label">Peak Wealth</div>
+                            <div class="stat-value" id="peak-wealth">—</div>
+                            <div class="stat-subtext" id="peak-wealth-age">at age —</div>
+                        </div>
+                        <div class="lifecycle-stat">
+                            <div class="stat-label">Avg. Savings Rate</div>
+                            <div class="stat-value" id="avg-savings-rate">—</div>
+                            <div class="stat-subtext">of net income</div>
+                        </div>
+                    </div>
+
+                    <!-- Lifecycle Chart -->
+                    <div class="chart-container">
+                        <div id="lifecycle-chart"><div class="loading">Loading lifecycle data...</div></div>
+                        <div class="legend" id="lifecycle-legend"></div>
+                        <div class="download-buttons">
+                            <div class="download-buttons-inner">
+                                <button class="download-btn" id="download-lifecycle-csv">Download CSV</button>
+                            </div>
+                            <div class="chart-watermark">
+                                <a href="https://policyengine.org" target="_blank">
+                                    <img src="assets/policyengine-logo.svg" alt="PolicyEngine">
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lifecycle Explanation -->
+                    <div style="margin-top: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; font-size: 0.85rem; color: #475569; line-height: 1.6;">
+                        <strong>About this model:</strong> This shows optimal consumption and saving decisions based on the Life-Cycle Hypothesis (Modigliani, 1985 Nobel Prize).
+                        People smooth consumption over their lifetime by borrowing when young, saving during peak earning years, and drawing down wealth in retirement.
+                        The <strong>Euler equation</strong> determines the optimal consumption growth rate: g = [β(1+r)]<sup>1/σ</sup> - 1.
                     </div>
                 </div>
 
@@ -979,6 +1242,12 @@
                 savings_interest_per_year: parseFloat(document.getElementById('savings_interest_per_year').value),
                 property_income_per_year: parseFloat(document.getElementById('property_income_per_year').value),
                 children_ages: parseChildrenAges(document.getElementById('children_ages').value),
+                // Lifecycle model parameters
+                discount_rate: parseFloat(document.getElementById('discount_rate').value),
+                risk_aversion: parseFloat(document.getElementById('risk_aversion').value),
+                interest_rate: parseFloat(document.getElementById('interest_rate').value),
+                initial_wealth: parseFloat(document.getElementById('initial_wealth').value),
+                borrowing_limit: parseFloat(document.getElementById('borrowing_limit').value),
             };
         }
 
@@ -994,9 +1263,14 @@
                 previousData = currentData;
                 currentData = result.data;
                 renderChart(previousData.length > 0);
+                // Also render lifecycle chart if that tab is active
+                if (typeof activeMainTab !== 'undefined' && activeMainTab === 'lifecycle') {
+                    renderLifecycleChart();
+                }
             } catch (error) {
                 console.error('Error fetching data:', error);
                 document.getElementById('chart').innerHTML = '<div class="loading">Error loading data. Is the API running?</div>';
+                document.getElementById('lifecycle-chart').innerHTML = '<div class="loading">Error loading data. Is the API running?</div>';
             }
         }
 
@@ -2934,7 +3208,425 @@
             renderActiveDetailChart();
         });
 
+        // ============================================
+        // LIFECYCLE MODEL TAB FUNCTIONALITY
+        // ============================================
+
+        let activeMainTab = 'policy';
+
+        // Main tab switching
+        function initMainTabs() {
+            document.querySelectorAll('.main-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    if (tabName === activeMainTab) return;
+
+                    // Update active tab button
+                    document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    // Update active tab content
+                    document.querySelectorAll('.main-tab-content').forEach(c => c.classList.remove('active'));
+                    document.getElementById(`${tabName}-tab`).classList.add('active');
+
+                    activeMainTab = tabName;
+
+                    // Render lifecycle chart when switching to that tab
+                    if (tabName === 'lifecycle' && currentData.length > 0) {
+                        renderLifecycleChart();
+                    }
+                });
+            });
+        }
+
+        // Lifecycle parameter slider IDs
+        const LIFECYCLE_SLIDER_IDS = ['discount_rate', 'risk_aversion', 'interest_rate', 'initial_wealth', 'borrowing_limit'];
+
+        // Format lifecycle slider values for display
+        function formatLifecycleSliderValue(id, value) {
+            const v = parseFloat(value);
+            if (id === 'discount_rate') return v.toFixed(2);
+            if (id === 'risk_aversion') return v.toFixed(1);
+            if (id === 'interest_rate') return (v * 100).toFixed(1) + '%';
+            if (id === 'initial_wealth') return `£${d3.format(',.0f')(v)}`;
+            if (id === 'borrowing_limit') {
+                if (v <= -1e9) return 'Unlimited';
+                return `£${d3.format(',.0f')(v)}`;
+            }
+            return v.toString();
+        }
+
+        // Initialize lifecycle sliders
+        function initLifecycleSliders() {
+            LIFECYCLE_SLIDER_IDS.forEach(id => {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(`${id}_value`);
+                if (slider && display) {
+                    // Set initial display
+                    display.textContent = formatLifecycleSliderValue(id, slider.value);
+                    // Add event listener
+                    slider.addEventListener('input', () => {
+                        display.textContent = formatLifecycleSliderValue(id, slider.value);
+                    });
+                    // Refetch data on change (debounced)
+                    slider.addEventListener('change', () => {
+                        fetchData();
+                    });
+                }
+            });
+
+            // Preset buttons for borrowing limit
+            const noBorrowingBtn = document.getElementById('no-borrowing-btn');
+            const unlimitedBorrowingBtn = document.getElementById('unlimited-borrowing-btn');
+            const borrowingSlider = document.getElementById('borrowing_limit');
+            const borrowingDisplay = document.getElementById('borrowing_limit_value');
+
+            if (noBorrowingBtn && borrowingSlider) {
+                noBorrowingBtn.addEventListener('click', () => {
+                    borrowingSlider.value = 0;
+                    borrowingDisplay.textContent = formatLifecycleSliderValue('borrowing_limit', 0);
+                    fetchData();
+                });
+            }
+
+            if (unlimitedBorrowingBtn && borrowingSlider) {
+                unlimitedBorrowingBtn.addEventListener('click', () => {
+                    borrowingSlider.value = -500000; // Max negative (slider minimum)
+                    borrowingDisplay.textContent = 'Unlimited';
+                    fetchData();
+                });
+            }
+        }
+
+        // Lifecycle series configuration
+        const lifecycleSeries = [
+            { key: 'net_income', label: 'Net Income', color: '#64748b', type: 'line', dash: '4,4' },
+            { key: 'optimal_consumption', label: 'Consumption', color: '#6366f1', type: 'line' },
+            { key: 'wealth', label: 'Wealth', color: '#10b981', type: 'area' },
+        ];
+
+        // Render lifecycle chart
+        function renderLifecycleChart() {
+            const data = currentData;
+            if (!data.length) return;
+
+            const container = document.getElementById('lifecycle-chart');
+            container.innerHTML = '';
+
+            // Update summary stats
+            updateLifecycleSummary(data);
+
+            // Chart dimensions
+            const margin = { top: 20, right: 80, bottom: 40, left: 80 };
+            const width = container.clientWidth - margin.left - margin.right;
+            const height = 400 - margin.top - margin.bottom;
+
+            // Create SVG
+            const svg = d3.select('#lifecycle-chart')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            // Scales
+            const xScale = d3.scaleLinear()
+                .domain(d3.extent(data, d => d.age))
+                .range([0, width]);
+
+            // Get all values for y-scale (include negative wealth for borrowing)
+            const allValues = data.flatMap(d => [d.net_income, d.optimal_consumption, d.wealth]);
+            const yMin = Math.min(0, d3.min(allValues));
+            const yMax = d3.max(allValues);
+            const yPadding = (yMax - yMin) * 0.1;
+
+            const yScale = d3.scaleLinear()
+                .domain([yMin - yPadding, yMax + yPadding])
+                .range([height, 0]);
+
+            // Grid lines
+            g.append('g')
+                .attr('class', 'grid')
+                .selectAll('line')
+                .data(yScale.ticks(8))
+                .enter()
+                .append('line')
+                .attr('x1', 0)
+                .attr('x2', width)
+                .attr('y1', d => yScale(d))
+                .attr('y2', d => yScale(d))
+                .attr('stroke', '#f1f5f9')
+                .attr('stroke-width', 1);
+
+            // Zero line
+            if (yMin < 0) {
+                g.append('line')
+                    .attr('x1', 0)
+                    .attr('x2', width)
+                    .attr('y1', yScale(0))
+                    .attr('y2', yScale(0))
+                    .attr('stroke', '#94a3b8')
+                    .attr('stroke-width', 1)
+                    .attr('stroke-dasharray', '4,4');
+            }
+
+            // Wealth area (fill)
+            const wealthArea = d3.area()
+                .x(d => xScale(d.age))
+                .y0(yScale(0))
+                .y1(d => yScale(d.wealth))
+                .curve(d3.curveMonotoneX);
+
+            g.append('path')
+                .datum(data)
+                .attr('fill', '#10b981')
+                .attr('fill-opacity', 0.15)
+                .attr('d', wealthArea);
+
+            // Line generator
+            const line = d3.line()
+                .x(d => xScale(d.age))
+                .curve(d3.curveMonotoneX);
+
+            // Draw lines
+            // Net income (dashed)
+            g.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', '#64748b')
+                .attr('stroke-width', 2)
+                .attr('stroke-dasharray', '6,4')
+                .attr('d', line.y(d => yScale(d.net_income)));
+
+            // Consumption (solid, prominent)
+            g.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', '#6366f1')
+                .attr('stroke-width', 3)
+                .attr('d', line.y(d => yScale(d.optimal_consumption)));
+
+            // Wealth line (on top of area)
+            g.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', '#10b981')
+                .attr('stroke-width', 2)
+                .attr('d', line.y(d => yScale(d.wealth)));
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale)
+                .tickFormat(d => `${d}`)
+                .ticks(Math.min(data.length, 10));
+
+            const yAxis = d3.axisLeft(yScale)
+                .tickFormat(d => `£${d3.format(',.0f')(d / 1000)}k`)
+                .ticks(8);
+
+            g.append('g')
+                .attr('class', 'axis x-axis')
+                .attr('transform', `translate(0,${height})`)
+                .call(xAxis);
+
+            g.append('g')
+                .attr('class', 'axis y-axis')
+                .call(yAxis);
+
+            // Axis labels
+            svg.append('text')
+                .attr('x', margin.left + width / 2)
+                .attr('y', height + margin.top + 35)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#64748b')
+                .attr('font-size', '12px')
+                .text('Age');
+
+            svg.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('x', -(margin.top + height / 2))
+                .attr('y', 20)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#64748b')
+                .attr('font-size', '12px')
+                .text('Amount (£)');
+
+            // Retirement age marker
+            const retirementAge = parseInt(document.getElementById('retirement_age').value);
+            const retirementData = data.find(d => d.age === retirementAge);
+            if (retirementData) {
+                g.append('line')
+                    .attr('x1', xScale(retirementAge))
+                    .attr('x2', xScale(retirementAge))
+                    .attr('y1', 0)
+                    .attr('y2', height)
+                    .attr('stroke', '#f97316')
+                    .attr('stroke-width', 1)
+                    .attr('stroke-dasharray', '4,4');
+
+                g.append('text')
+                    .attr('x', xScale(retirementAge))
+                    .attr('y', -5)
+                    .attr('text-anchor', 'middle')
+                    .attr('fill', '#f97316')
+                    .attr('font-size', '11px')
+                    .text('Retirement');
+            }
+
+            // Legend
+            const legendEl = document.getElementById('lifecycle-legend');
+            legendEl.innerHTML = `
+                <div class="legend-item"><div class="legend-color" style="background: #6366f1;"></div><span>Optimal Consumption</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #64748b;"></div><span style="border-bottom: 1px dashed #64748b;">Net Income</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #10b981;"></div><span>Wealth</span></div>
+                <div class="legend-item"><div class="legend-color" style="background: #f97316; width: 20px; height: 2px; border-radius: 0;"></div><span>Retirement</span></div>
+            `;
+
+            // Tooltip
+            const tooltip = d3.select('#tooltip');
+
+            // Interactive overlay
+            const bisect = d3.bisector(d => d.age).left;
+
+            g.append('rect')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('fill', 'transparent')
+                .on('mousemove', function(event) {
+                    const [mouseX] = d3.pointer(event);
+                    const age = Math.round(xScale.invert(mouseX));
+                    const idx = bisect(data, age);
+                    const d = data[Math.min(idx, data.length - 1)];
+
+                    if (d) {
+                        tooltip.style('opacity', 1)
+                            .style('left', `${event.pageX + 15}px`)
+                            .style('top', `${event.pageY - 10}px`)
+                            .html(`
+                                <div class="tooltip-title">Age ${d.age} (${d.year})</div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Net Income:</span>
+                                    <span class="tooltip-value">£${d3.format(',.0f')(d.net_income)}</span>
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Consumption:</span>
+                                    <span class="tooltip-value" style="color: #6366f1;">£${d3.format(',.0f')(d.optimal_consumption)}</span>
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Savings:</span>
+                                    <span class="tooltip-value ${d.optimal_savings >= 0 ? 'positive' : 'negative'}">£${d3.format(',.0f')(d.optimal_savings)}</span>
+                                </div>
+                                <div class="tooltip-row">
+                                    <span class="tooltip-label">Wealth:</span>
+                                    <span class="tooltip-value" style="color: #10b981;">£${d3.format(',.0f')(d.wealth)}</span>
+                                </div>
+                            `);
+                    }
+                })
+                .on('mouseout', () => {
+                    tooltip.style('opacity', 0);
+                });
+        }
+
+        // Update lifecycle summary statistics
+        function updateLifecycleSummary(data) {
+            if (!data.length) return;
+
+            // Calculate statistics (exclude last period - terminal consumption spike)
+            const dataExclLast = data.slice(0, -1);
+            const incomes = dataExclLast.map(d => d.net_income);
+            const consumptions = dataExclLast.map(d => d.optimal_consumption);
+            const savings = data.map(d => d.optimal_savings);
+            const wealths = data.map(d => d.wealth);
+
+            // Standard deviation helper
+            const stdDev = arr => {
+                const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+                const squaredDiffs = arr.map(x => (x - mean) ** 2);
+                return Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / arr.length);
+            };
+
+            // Consumption smoothing ratio (higher = more smoothing)
+            const incomeStd = stdDev(incomes);
+            const consumptionStd = stdDev(consumptions);
+            const smoothingRatio = consumptionStd > 0 ? incomeStd / consumptionStd : 0;
+
+            // Consumption growth rate (exclude last period - terminal consumption spike)
+            let consumptionGrowth = 0;
+            if (data.length > 2) {
+                const growthRates = [];
+                // Exclude last period as it includes terminal wealth consumption
+                for (let i = 1; i < data.length - 1; i++) {
+                    if (data[i-1].optimal_consumption > 0) {
+                        growthRates.push(data[i].optimal_consumption / data[i-1].optimal_consumption - 1);
+                    }
+                }
+                if (growthRates.length > 0) {
+                    consumptionGrowth = growthRates.reduce((a, b) => a + b, 0) / growthRates.length;
+                }
+            }
+
+            // Peak wealth and age
+            let peakWealth = wealths[0];
+            let peakWealthAge = data[0].age;
+            data.forEach(d => {
+                if (d.wealth > peakWealth) {
+                    peakWealth = d.wealth;
+                    peakWealthAge = d.age;
+                }
+            });
+
+            // Average savings rate (during working years only)
+            const workingYears = data.filter(d => d.age <= parseInt(document.getElementById('retirement_age').value));
+            let avgSavingsRate = 0;
+            if (workingYears.length > 0) {
+                const rates = workingYears.map(d => d.net_income > 0 ? d.optimal_savings / d.net_income : 0);
+                avgSavingsRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            }
+
+            // Update DOM
+            document.getElementById('smoothing-ratio').textContent = smoothingRatio.toFixed(1) + '×';
+            document.getElementById('consumption-growth').textContent = (consumptionGrowth * 100).toFixed(2) + '%';
+            document.getElementById('peak-wealth').textContent = `£${d3.format(',.0f')(peakWealth)}`;
+            document.getElementById('peak-wealth-age').textContent = `at age ${peakWealthAge}`;
+            document.getElementById('avg-savings-rate').textContent = (avgSavingsRate * 100).toFixed(1) + '%';
+        }
+
+        // Download lifecycle CSV
+        function downloadLifecycleCSV() {
+            if (!currentData.length) return;
+
+            const headers = ['Age', 'Year', 'Net Income', 'Optimal Consumption', 'Optimal Savings', 'Wealth', 'Gross Income', 'Income Tax', 'NI', 'Student Loan'];
+            const rows = currentData.map(row => {
+                return [
+                    row.age, row.year, row.net_income, row.optimal_consumption, row.optimal_savings, row.wealth,
+                    row.gross_income, row.income_tax, row.national_insurance, row.student_loan_payment
+                ].join(',');
+            });
+
+            const csv = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lifecycle-consumption-saving.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Lifecycle download button
+        document.getElementById('download-lifecycle-csv').addEventListener('click', downloadLifecycleCSV);
+
+        // ============================================
+        // END LIFECYCLE MODEL TAB FUNCTIONALITY
+        // ============================================
+
         // Initial load
+        initMainTabs();
+        initLifecycleSliders();
         initSliders();
         fetchData();
     </script>
