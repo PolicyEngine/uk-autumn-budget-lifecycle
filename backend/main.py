@@ -266,6 +266,108 @@ class ModelInputs(BaseModel):
     additional_income_growth_rate: float = 0.01
     # Children ages in 2025 (for two-child limit impact calculation)
     children_ages: list[int] = []
+    # Life-cycle consumption-saving parameters (OLG Step 1)
+    discount_rate: float = 0.96  # β - patience parameter (0.96 = value £1 next year as £0.96 today)
+    risk_aversion: float = 2.0  # σ - CRRA parameter (higher = smoother consumption)
+    interest_rate: float = 0.04  # r - annual return on savings (4%)
+    initial_wealth: float = 0.0  # a_0 - starting assets in £
+    # Borrowing constraint (OLG Step 2)
+    borrowing_limit: float = 0.0  # Minimum wealth allowed (0 = no borrowing, negative = allow some debt)
+
+
+# ============================================
+# OLG Step 2: Heterogeneous Individual Types
+# ============================================
+# Predefined types for distributional analysis
+INDIVIDUAL_TYPES = {
+    "low_earner": {
+        "label": "Low Earner (£20k)",
+        "color": "#f97316",  # orange
+        "overrides": {
+            "current_salary": 20_000,
+            "student_loan_debt": 30_000,
+            "salary_sacrifice_per_year": 0,
+            "dividends_per_year": 0,
+            "savings_interest_per_year": 0,
+            "property_income_per_year": 0,
+        }
+    },
+    "medium_earner": {
+        "label": "Medium Earner (£40k)",
+        "color": "#3b82f6",  # blue
+        "overrides": {
+            "current_salary": 40_000,
+            "student_loan_debt": 50_000,
+            "salary_sacrifice_per_year": 2_000,
+            "dividends_per_year": 500,
+            "savings_interest_per_year": 500,
+            "property_income_per_year": 0,
+        }
+    },
+    "high_earner": {
+        "label": "High Earner (£80k)",
+        "color": "#10b981",  # green
+        "overrides": {
+            "current_salary": 80_000,
+            "student_loan_debt": 60_000,
+            "salary_sacrifice_per_year": 10_000,
+            "dividends_per_year": 5_000,
+            "savings_interest_per_year": 3_000,
+            "property_income_per_year": 5_000,
+        }
+    },
+    "single_no_children": {
+        "label": "Single, No Children",
+        "color": "#8b5cf6",  # purple
+        "overrides": {
+            "children_ages": [],
+        }
+    },
+    "parent_2_children": {
+        "label": "Parent (2 Children)",
+        "color": "#ec4899",  # pink
+        "overrides": {
+            "children_ages": [5, 3],  # Two young children
+        }
+    },
+    "young_graduate": {
+        "label": "Young Graduate (22)",
+        "color": "#06b6d4",  # cyan
+        "overrides": {
+            "current_age": 22,
+            "current_salary": 28_000,
+            "student_loan_debt": 50_000,
+            "initial_wealth": 0,
+        }
+    },
+    "mid_career": {
+        "label": "Mid-Career (40)",
+        "color": "#84cc16",  # lime
+        "overrides": {
+            "current_age": 40,
+            "current_salary": 55_000,
+            "student_loan_debt": 20_000,
+            "initial_wealth": 50_000,
+        }
+    },
+    "pre_retirement": {
+        "label": "Pre-Retirement (55)",
+        "color": "#f59e0b",  # amber
+        "overrides": {
+            "current_age": 55,
+            "current_salary": 60_000,
+            "student_loan_debt": 0,
+            "initial_wealth": 200_000,
+        }
+    },
+}
+
+
+class CompareTypesRequest(BaseModel):
+    """Request for comparing multiple individual types."""
+    types: list[str] = ["low_earner", "medium_earner", "high_earner"]
+    # Base parameters that apply to all types (types override these)
+    base_params: ModelInputs = ModelInputs()
 
 
 def get_cpi(year: int) -> float:
@@ -680,6 +782,268 @@ def calculate_scenario(
     }
 
 
+def solve_consumption_saving(
+    net_income_profile: list[float],
+    discount_rate: float,
+    risk_aversion: float,
+    interest_rate: float,
+    initial_wealth: float,
+    borrowing_limit: float = None,
+) -> dict:
+    """Solve for optimal consumption-saving decisions over the lifecycle.
+
+    Uses backward induction to solve the constrained life-cycle problem:
+    - Maximize: Σ β^t × u(c_t) where u(c) = c^(1-σ)/(1-σ) (CRRA utility)
+    - Subject to: c_t + a_{t+1} = (1+r) × a_t + y_t
+    - Borrowing constraint: a_t >= borrowing_limit (if specified)
+    - Terminal condition: a_{T+1} = 0 (die with zero wealth)
+
+    When borrowing_limit is None or very negative, uses analytical solution.
+    When borrowing_limit is specified, uses numerical backward induction.
+
+    Args:
+        net_income_profile: List of net income (y_t) at each age
+        discount_rate: β - patience parameter (typically 0.96)
+        risk_aversion: σ - CRRA parameter (typically 1.5-3.0)
+        interest_rate: r - return on savings (typically 0.03-0.05)
+        initial_wealth: a_0 - starting assets
+        borrowing_limit: Minimum wealth allowed (None = unconstrained, 0 = no borrowing)
+
+    Returns:
+        Dict containing:
+        - consumption: list of optimal consumption at each age
+        - savings: list of savings (can be negative) at each age
+        - wealth: list of wealth at start of each age
+        - consumption_growth_rate: average consumption growth rate
+        - present_value_income: total discounted lifetime income
+        - lifetime_utility: total discounted utility
+        - constraint_binds: list of booleans indicating when constraint binds
+    """
+    import math
+
+    T = len(net_income_profile)  # Number of periods
+    if T == 0:
+        return {
+            "consumption": [],
+            "savings": [],
+            "wealth": [],
+            "consumption_growth_rate": 0.0,
+            "present_value_income": 0.0,
+            "lifetime_utility": 0.0,
+            "constraint_binds": [],
+        }
+
+    beta = discount_rate
+    sigma = risk_aversion
+    r = interest_rate
+
+    # Utility function and its derivative (marginal utility)
+    def utility(c):
+        if c <= 0:
+            return -1e10
+        if abs(sigma - 1.0) < 1e-10:
+            return math.log(c)
+        return (c ** (1 - sigma)) / (1 - sigma)
+
+    def marginal_utility(c):
+        if c <= 0:
+            return 1e10
+        return c ** (-sigma)
+
+    def inverse_marginal_utility(mu):
+        if mu <= 0:
+            return 1e10
+        return mu ** (-1 / sigma)
+
+    # Calculate theoretical (unconstrained) growth rate
+    growth_factor = (beta * (1 + r)) ** (1 / sigma)
+    theoretical_g = growth_factor - 1
+
+    # Calculate present value of lifetime income
+    pv_income = sum(y / ((1 + r) ** t) for t, y in enumerate(net_income_profile))
+
+    # ========================================
+    # Step 1: Compute analytical unconstrained solution
+    # ========================================
+    total_resources = initial_wealth + pv_income
+    R = (1 + theoretical_g) / (1 + r)
+
+    if abs(R - 1.0) < 1e-10:
+        pv_factor = T
+    else:
+        pv_factor = (1 - R**T) / (1 - R)
+
+    c_0_unconstrained = total_resources / pv_factor if pv_factor > 0 else total_resources / T
+    consumption_unconstrained = [c_0_unconstrained * (growth_factor**t) for t in range(T)]
+
+    # Calculate wealth path for unconstrained solution
+    wealth_unconstrained = [initial_wealth]
+    savings_unconstrained = []
+    for t in range(T):
+        s_t = net_income_profile[t] - consumption_unconstrained[t]
+        savings_unconstrained.append(s_t)
+        if t < T - 1:
+            a_next = (1 + r) * wealth_unconstrained[t] + net_income_profile[t] - consumption_unconstrained[t]
+            wealth_unconstrained.append(a_next)
+
+    # Check if unconstrained solution satisfies borrowing constraint
+    min_wealth_unconstrained = min(wealth_unconstrained)
+
+    # If no borrowing constraint, or unconstrained solution is feasible, return it
+    if borrowing_limit is None or min_wealth_unconstrained >= borrowing_limit:
+        lifetime_utility = sum((beta**t) * utility(c) for t, c in enumerate(consumption_unconstrained))
+
+        return {
+            "consumption": consumption_unconstrained,
+            "savings": savings_unconstrained,
+            "wealth": wealth_unconstrained,
+            "consumption_growth_rate": theoretical_g,
+            "present_value_income": pv_income,
+            "lifetime_utility": lifetime_utility,
+            "constraint_binds": [False] * T,
+        }
+
+    # ========================================
+    # Step 2: CONSTRAINED SOLUTION (constraint actually binds)
+    # Use backward induction / binary search
+    # ========================================
+
+    # We solve using the Endogenous Grid Method (EGM) simplified
+    # Key insight: work backwards from T, tracking optimal consumption
+
+    # Step 1: Compute "cash on hand" grid for each period
+    # Cash on hand = (1+r)*a + y = resources available for consumption + saving
+
+    # Minimum consumption (must be positive)
+    min_consumption = 100  # £100 minimum consumption per year
+
+    # Arrays to store policy functions and paths
+    consumption = [0.0] * T
+    wealth = [0.0] * T
+    savings = [0.0] * T
+    constraint_binds = [False] * T
+
+    # Terminal period: consume everything (a_{T+1} = 0)
+    # We'll solve backwards to find optimal consumption at each period
+
+    # For backward induction, we need to track the value function
+    # V_t(a) = max_c { u(c) + β V_{t+1}(a') } s.t. a' = (1+r)*a + y_t - c, a' >= borrowing_limit
+
+    # Simplified approach: iterate forward with Euler equation + constraint checking
+    # Start with a guess for initial consumption, then iterate
+
+    # Use bisection to find the initial consumption that satisfies terminal condition
+    # with borrowing constraints
+
+    def simulate_path(c_0_guess):
+        """Simulate the consumption/wealth path given initial consumption."""
+        c_path = [0.0] * T
+        a_path = [initial_wealth] + [0.0] * (T - 1)
+        binds = [False] * T
+
+        c_path[0] = c_0_guess
+
+        for t in range(T):
+            # Current wealth and income
+            a_t = a_path[t] if t < len(a_path) else 0
+            y_t = net_income_profile[t]
+
+            # Maximum consumption (can't consume more than available resources)
+            # a_{t+1} >= borrowing_limit means c_t <= (1+r)*a_t + y_t - borrowing_limit
+            max_c = (1 + r) * a_t + y_t - borrowing_limit
+
+            if t == 0:
+                c_t = min(max(c_0_guess, min_consumption), max_c)
+            else:
+                # Euler equation: c_t = c_{t-1} * growth_factor (if unconstrained)
+                c_unconstrained = c_path[t - 1] * growth_factor
+
+                # Check if constraint binds
+                if c_unconstrained > max_c:
+                    # Constraint binds: consume maximum allowed
+                    c_t = max(max_c, min_consumption)
+                    binds[t] = True
+                else:
+                    c_t = max(c_unconstrained, min_consumption)
+
+            c_path[t] = c_t
+
+            # Next period wealth
+            if t < T - 1:
+                a_next = (1 + r) * a_t + y_t - c_t
+                a_path[t + 1] = max(a_next, borrowing_limit)
+
+        # Calculate terminal wealth (what's left after last period)
+        a_T = a_path[T - 1]
+        y_T = net_income_profile[T - 1]
+        c_T = c_path[T - 1]
+        terminal_wealth = (1 + r) * a_T + y_T - c_T
+
+        return c_path, a_path, binds, terminal_wealth
+
+    # Binary search for initial consumption that gives terminal wealth close to 0
+    # (or borrowing_limit if constrained at the end)
+
+    # Lower bound: minimum consumption each period
+    c_low = min_consumption
+
+    # Upper bound: consume all resources in first period (not realistic but upper bound)
+    c_high = (1 + r) * initial_wealth + net_income_profile[0] - borrowing_limit
+
+    # Target terminal wealth
+    target_terminal = max(0, borrowing_limit)
+
+    # Binary search
+    for _ in range(100):  # Max iterations
+        c_mid = (c_low + c_high) / 2
+        _, _, _, terminal = simulate_path(c_mid)
+
+        if abs(terminal - target_terminal) < 100:  # Within £100
+            break
+
+        if terminal > target_terminal:
+            # Terminal wealth too high -> increase initial consumption
+            c_low = c_mid
+        else:
+            # Terminal wealth too low -> decrease initial consumption
+            c_high = c_mid
+
+    # Final simulation with optimal initial consumption
+    consumption, wealth, constraint_binds, _ = simulate_path(c_mid)
+
+    # Adjust final period consumption to hit terminal condition exactly
+    if T > 0:
+        a_T = wealth[T - 1]
+        y_T = net_income_profile[T - 1]
+        # c_T such that terminal wealth = target_terminal
+        consumption[T - 1] = (1 + r) * a_T + y_T - target_terminal
+        consumption[T - 1] = max(consumption[T - 1], min_consumption)
+
+    # Calculate savings
+    for t in range(T):
+        savings[t] = net_income_profile[t] - consumption[t]
+
+    # Calculate average consumption growth rate
+    growth_rates = []
+    for t in range(1, T):
+        if consumption[t - 1] > 0:
+            growth_rates.append(consumption[t] / consumption[t - 1] - 1)
+    avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0
+
+    # Calculate lifetime utility
+    lifetime_utility = sum((beta**t) * utility(c) for t, c in enumerate(consumption))
+
+    return {
+        "consumption": consumption,
+        "savings": savings,
+        "wealth": wealth,
+        "consumption_growth_rate": avg_growth,
+        "present_value_income": pv_income,
+        "lifetime_utility": lifetime_utility,
+        "constraint_binds": constraint_binds,
+    }
+
+
 def run_model(inputs: ModelInputs) -> list[dict]:
     # Current salary is the 2025 value at current_age
     current_salary = inputs.current_salary
@@ -751,6 +1115,9 @@ def run_model(inputs: ModelInputs) -> list[dict]:
         baseline_net = (gross_income - reform["income_tax"] - ni - reform["sl_payment"] - unearned_tax
                        - inputs.rail_spending_per_year - inputs.petrol_spending_per_year)
 
+        # Disposable income for consumption-saving model (income after taxes/NI/SL, before consumption choices)
+        net_income = gross_income - reform["income_tax"] - ni - reform["sl_payment"]
+
         # Calculate policy impacts
         impact_rail_freeze = calculate_rail_impact(inputs.rail_spending_per_year, current_year)
         impact_fuel_freeze = calculate_fuel_duty_impact(inputs.petrol_spending_per_year, current_year)
@@ -809,6 +1176,7 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "student_loan_debt_remaining": round(reform_debt),
             "num_children": num_children,
             "baseline_net_income": round(baseline_net),
+            "net_income": round(net_income),  # Disposable income for lifecycle model
             "impact_rail_fare_freeze": round(impact_rail_freeze),
             "impact_fuel_duty_freeze": round(impact_fuel_freeze),
             "impact_threshold_freeze": round(impact_threshold_freeze),
@@ -833,7 +1201,31 @@ def run_model(inputs: ModelInputs) -> list[dict]:
             "reform_sl_payment": round(reform["sl_payment"]),
             "baseline_sl_threshold": round(baseline["sl_threshold"]),
             "reform_sl_threshold": round(reform["sl_threshold"]),
+            # Lifecycle model fields (populated after main loop)
+            "optimal_consumption": 0,
+            "optimal_savings": 0,
+            "wealth": 0,
         })
+
+    # === PHASE 2: Solve life-cycle consumption-saving problem ===
+    # Extract net income profile and solve for optimal consumption/savings
+    if results:
+        net_income_profile = [r["net_income"] for r in results]
+        lifecycle = solve_consumption_saving(
+            net_income_profile,
+            inputs.discount_rate,
+            inputs.risk_aversion,
+            inputs.interest_rate,
+            inputs.initial_wealth,
+            inputs.borrowing_limit,
+        )
+
+        # Merge lifecycle results into main results
+        for i, result in enumerate(results):
+            result["optimal_consumption"] = round(lifecycle["consumption"][i])
+            result["optimal_savings"] = round(lifecycle["savings"][i])
+            result["wealth"] = round(lifecycle["wealth"][i])
+            result["constraint_binds"] = lifecycle["constraint_binds"][i] if i < len(lifecycle["constraint_binds"]) else False
 
     return results
 
@@ -847,3 +1239,89 @@ def root():
 def calculate(inputs: ModelInputs):
     results = run_model(inputs)
     return {"data": results}
+
+
+@app.get("/types")
+def get_types():
+    """Return available individual types for comparison."""
+    return {
+        "types": {
+            key: {"label": val["label"], "color": val["color"]}
+            for key, val in INDIVIDUAL_TYPES.items()
+        }
+    }
+
+
+@app.post("/compare-types")
+def compare_types(request: CompareTypesRequest):
+    """
+    Run lifecycle model for multiple individual types and return comparative results.
+
+    This is OLG Step 2: Heterogeneity - comparing outcomes across different types.
+    """
+    results = {}
+
+    for type_key in request.types:
+        if type_key not in INDIVIDUAL_TYPES:
+            continue
+
+        type_config = INDIVIDUAL_TYPES[type_key]
+
+        # Start with base params and apply type-specific overrides
+        params_dict = request.base_params.model_dump()
+        params_dict.update(type_config["overrides"])
+
+        # Create inputs for this type
+        type_inputs = ModelInputs(**params_dict)
+
+        # Run the model
+        type_results = run_model(type_inputs)
+
+        # Calculate summary statistics for this type
+        if type_results:
+            data_excl_last = type_results[:-1] if len(type_results) > 1 else type_results
+
+            # Lifetime totals
+            total_income = sum(r.get("net_income", 0) for r in type_results)
+            total_consumption = sum(r.get("optimal_consumption", 0) for r in type_results)
+            total_taxes = sum(r.get("income_tax", 0) + r.get("national_insurance", 0) for r in type_results)
+
+            # Peak values
+            peak_wealth = max(r.get("wealth", 0) for r in type_results)
+            peak_income = max(r.get("net_income", 0) for r in type_results)
+
+            # Consumption smoothing (excluding terminal period)
+            if data_excl_last:
+                incomes = [r.get("net_income", 0) for r in data_excl_last]
+                consumptions = [r.get("optimal_consumption", 0) for r in data_excl_last]
+
+                income_mean = sum(incomes) / len(incomes)
+                consumption_mean = sum(consumptions) / len(consumptions)
+
+                income_std = (sum((x - income_mean)**2 for x in incomes) / len(incomes)) ** 0.5
+                consumption_std = (sum((x - consumption_mean)**2 for x in consumptions) / len(consumptions)) ** 0.5
+
+                smoothing_ratio = income_std / consumption_std if consumption_std > 0 else 0
+            else:
+                smoothing_ratio = 0
+
+            summary = {
+                "total_lifetime_income": total_income,
+                "total_lifetime_consumption": total_consumption,
+                "total_lifetime_taxes": total_taxes,
+                "peak_wealth": peak_wealth,
+                "peak_income": peak_income,
+                "smoothing_ratio": smoothing_ratio,
+                "years": len(type_results),
+            }
+        else:
+            summary = {}
+
+        results[type_key] = {
+            "label": type_config["label"],
+            "color": type_config["color"],
+            "data": type_results,
+            "summary": summary,
+        }
+
+    return {"results": results}
